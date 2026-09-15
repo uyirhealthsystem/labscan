@@ -1,0 +1,698 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =========================================================
+// LAB
+// =========================================================
+
+model Lab {
+  labId              String    @id @default(uuid())
+  labUserId          String
+  name               String
+  registrationNumber String?
+  phone              String?
+  email              String?
+  address            String?
+  districtId         String?
+  status             LabStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tests        LabTest[]
+  appointments Appointment[]
+
+  @@index([labUserId])
+  @@index([districtId])
+  @@index([status])
+  @@index([registrationNumber])
+}
+
+// =========================================================
+// LAB TEST
+// =========================================================
+
+model LabTest {
+  labTestId String @id @default(uuid())
+
+  labId         String
+  testCatalogId String
+
+  price          Decimal?
+  turnaroundTime Int?
+  status         LabTestStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lab         Lab            @relation(fields: [labId], references: [labId], onDelete: Cascade)
+  testCatalog LabTestCatalog @relation(fields: [testCatalogId], references: [testCatalogId])
+
+  appointmentTests AppointmentTest[]
+
+  @@unique([labId, testCatalogId])
+  @@index([labId])
+  @@index([testCatalogId])
+  @@index([status])
+}
+
+// =========================================================
+// LAB TEST CATALOG
+// =========================================================
+
+model LabTestCatalog {
+  testCatalogId String @id @default(uuid())
+
+  code        String  @unique
+  name        String
+  description String?
+  category    String?
+
+  status CatalogStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tests LabTest[]
+
+  @@index([name])
+  @@index([category])
+  @@index([status])
+}
+
+// =========================================================
+// SCAN CENTER
+// =========================================================
+
+model ScanCenter {
+  scanCenterId       String           @id @default(uuid())
+  scanCenterUserId   String
+  name               String
+  registrationNumber String?
+  phone              String?
+  email              String?
+  address            String?
+  districtId         String?
+  status             ScanCenterStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  services     ScanService[]
+  equipment    Equipment[]
+  appointments Appointment[]
+
+  @@index([scanCenterUserId])
+  @@index([districtId])
+  @@index([status])
+  @@index([registrationNumber])
+}
+
+// =========================================================
+// SCAN SERVICE
+// =========================================================
+
+model ScanService {
+  scanServiceId String @id @default(uuid())
+
+  scanCenterId     String
+  serviceCatalogId String
+
+  price          Decimal?
+  turnaroundTime Int?
+
+  equipmentRequired    Boolean @default(true)
+  homeServiceAvailable Boolean @default(false)
+
+  status ScanServiceStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  scanCenter     ScanCenter         @relation(fields: [scanCenterId], references: [scanCenterId], onDelete: Cascade)
+  serviceCatalog ScanServiceCatalog @relation(fields: [serviceCatalogId], references: [serviceCatalogId])
+
+  appointmentServices AppointmentService[]
+  equipmentServices   EquipmentService[]
+
+  @@unique([scanCenterId, serviceCatalogId])
+  @@index([scanCenterId])
+  @@index([serviceCatalogId])
+  @@index([status])
+}
+
+// =========================================================
+// SCAN SERVICE CATALOG
+// =========================================================
+
+model ScanServiceCatalog {
+  serviceCatalogId String @id @default(uuid())
+
+  code        String  @unique
+  name        String
+  description String?
+  category    String?
+
+  status CatalogStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  services ScanService[]
+
+  @@index([name])
+  @@index([category])
+  @@index([status])
+}
+
+// =========================================================
+// EQUIPMENT
+// =========================================================
+
+model Equipment {
+  equipmentId String @id @default(uuid())
+
+  scanCenterId String
+
+  name          String
+  equipmentType String
+  manufacturer  String?
+  modelNumber   String?
+
+  status EquipmentStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  scanCenter ScanCenter @relation(fields: [scanCenterId], references: [scanCenterId], onDelete: Cascade)
+
+  services EquipmentService[]
+
+  appointmentServices AppointmentService[]
+
+  @@index([scanCenterId])
+  @@index([equipmentType])
+  @@index([status])
+}
+
+// =========================================================
+// EQUIPMENT ↔ SCAN SERVICE
+// =========================================================
+
+model EquipmentService {
+  equipmentServiceId String @id @default(uuid())
+
+  equipmentId   String
+  scanServiceId String
+
+  createdAt DateTime @default(now())
+
+  equipment   Equipment   @relation(fields: [equipmentId], references: [equipmentId], onDelete: Cascade)
+  scanService ScanService @relation(fields: [scanServiceId], references: [scanServiceId], onDelete: Cascade)
+
+  @@unique([equipmentId, scanServiceId])
+  @@index([equipmentId])
+  @@index([scanServiceId])
+}
+
+// =========================================================
+// PATIENT
+// =========================================================
+
+model Patient {
+  patientId String @id @default(uuid())
+
+  name   String
+  gender Gender?
+  age    Int?
+  phone  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointments Appointment[]
+
+  @@index([name])
+  @@index([phone])
+}
+
+// =========================================================
+// APPOINTMENT
+// =========================================================
+
+model Appointment {
+  appointmentId String @id @default(uuid())
+
+  bookingId String @unique
+
+  patientId String
+
+  labId        String?
+  scanCenterId String?
+
+  appointmentType AppointmentType
+  appointmentMode AppointmentMode
+
+  appointmentDate DateTime
+  startTime       DateTime
+  endTime         DateTime
+
+  address String?
+
+  status AppointmentStatus @default(CONFIRMED)
+
+  patientNotes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient    Patient     @relation(fields: [patientId], references: [patientId])
+  lab        Lab?        @relation(fields: [labId], references: [labId])
+  scanCenter ScanCenter? @relation(fields: [scanCenterId], references: [scanCenterId])
+
+  tests    AppointmentTest[]
+  services AppointmentService[]
+
+  cancellation   Cancellation?
+  reschedules    Reschedule[]
+  homeCollection HomeCollection?
+  report         Report?
+  earning        Earning?
+
+  @@index([patientId])
+  @@index([labId])
+  @@index([scanCenterId])
+  @@index([appointmentDate])
+  @@index([status])
+  @@index([appointmentType])
+  @@index([appointmentMode])
+}
+
+// =========================================================
+// APPOINTMENT TEST
+// =========================================================
+
+model AppointmentTest {
+  appointmentTestId String @id @default(uuid())
+
+  appointmentId String
+  labTestId     String
+
+  price Decimal?
+
+  status AppointmentTestStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [appointmentId], onDelete: Cascade)
+  labTest     LabTest     @relation(fields: [labTestId], references: [labTestId])
+
+  @@unique([appointmentId, labTestId])
+  @@index([appointmentId])
+  @@index([labTestId])
+  @@index([status])
+}
+
+// =========================================================
+// APPOINTMENT SERVICE
+// =========================================================
+
+model AppointmentService {
+  appointmentServiceId String @id @default(uuid())
+
+  appointmentId String
+  scanServiceId String
+
+  equipmentId String?
+
+  price Decimal?
+
+  status AppointmentServiceStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [appointmentId], onDelete: Cascade)
+  scanService ScanService @relation(fields: [scanServiceId], references: [scanServiceId])
+  equipment   Equipment?  @relation(fields: [equipmentId], references: [equipmentId])
+
+  @@unique([appointmentId, scanServiceId])
+  @@index([appointmentId])
+  @@index([scanServiceId])
+  @@index([equipmentId])
+  @@index([status])
+}
+
+// =========================================================
+// CANCELLATION
+// =========================================================
+
+model Cancellation {
+  cancellationId String @id @default(uuid())
+
+  appointmentId String @unique
+
+  reason CancellationReason
+
+  additionalNotes String?
+
+  cancelledBy String?
+
+  cancelledAt DateTime @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [appointmentId], onDelete: Cascade)
+
+  @@index([reason])
+  @@index([cancelledAt])
+}
+
+// =========================================================
+// RESCHEDULE
+// =========================================================
+
+model Reschedule {
+  rescheduleId String @id @default(uuid())
+
+  appointmentId String
+
+  oldDate      DateTime
+  oldStartTime DateTime
+  oldEndTime   DateTime
+
+  newDate      DateTime
+  newStartTime DateTime
+  newEndTime   DateTime
+
+  reason String?
+
+  rescheduledBy String?
+
+  createdAt DateTime @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [appointmentId], onDelete: Cascade)
+
+  @@index([appointmentId])
+  @@index([newDate])
+}
+
+// =========================================================
+// HOME COLLECTION
+// =========================================================
+
+model HomeCollection {
+  homeCollectionId String @id @default(uuid())
+
+  appointmentId String @unique
+
+  address             String
+  specialInstructions String?
+
+  status HomeCollectionStatus @default(PENDING)
+
+  assignedAt  DateTime?
+  collectedAt DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointment Appointment @relation(fields: [appointmentId], references: [appointmentId], onDelete: Cascade)
+
+  collectorAssignment CollectorAssignment?
+  trackingEvents      HomeCollectionTracking[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+// =========================================================
+// COLLECTOR
+// =========================================================
+
+model Collector {
+  collectorId String @id @default(uuid())
+
+  labId String
+
+  name  String
+  phone String?
+
+  status CollectorStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignments CollectorAssignment[]
+
+  @@index([labId])
+  @@index([status])
+}
+
+// =========================================================
+// COLLECTOR ASSIGNMENT
+// =========================================================
+
+model CollectorAssignment {
+  collectorAssignmentId String @id @default(uuid())
+
+  homeCollectionId String @unique
+  collectorId      String
+
+  assignedAt DateTime @default(now())
+
+  status CollectorAssignmentStatus @default(ASSIGNED)
+
+  homeCollection HomeCollection @relation(fields: [homeCollectionId], references: [homeCollectionId], onDelete: Cascade)
+  collector      Collector      @relation(fields: [collectorId], references: [collectorId])
+
+  @@index([collectorId])
+  @@index([status])
+}
+
+// =========================================================
+// HOME COLLECTION TRACKING
+// =========================================================
+
+model HomeCollectionTracking {
+  trackingId String @id @default(uuid())
+
+  homeCollectionId String
+
+  status HomeCollectionTrackingStatus
+
+  notes String?
+
+  createdAt DateTime @default(now())
+
+  homeCollection HomeCollection @relation(fields: [homeCollectionId], references: [homeCollectionId], onDelete: Cascade)
+
+  @@index([homeCollectionId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// =========================================================
+// REPORT
+// =========================================================
+
+model Report {
+  reportId String @id @default(uuid())
+
+  appointmentId String @unique
+
+  status ReportStatus @default(PENDING)
+
+  reportNotes String?
+
+  uploadedAt DateTime?
+  sentAt     DateTime?
+
+  notifyPatient Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointment Appointment @relation(fields: [appointmentId], references: [appointmentId], onDelete: Cascade)
+
+  files ReportFile[]
+
+  @@index([status])
+  @@index([uploadedAt])
+  @@index([sentAt])
+}
+
+// =========================================================
+// REPORT FILE
+// =========================================================
+
+model ReportFile {
+  reportFileId String @id @default(uuid())
+
+  reportId String
+
+  fileName String
+  fileUrl  String
+  fileType String?
+  fileSize Int?
+
+  uploadedAt DateTime @default(now())
+
+  report Report @relation(fields: [reportId], references: [reportId], onDelete: Cascade)
+
+  @@index([reportId])
+}
+
+// =========================================================
+// EARNING
+// =========================================================
+
+model Earning {
+  earningId String @id @default(uuid())
+
+  appointmentId String @unique
+
+  amount Decimal
+
+  status EarningStatus @default(PENDING)
+
+  earnedAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  appointment Appointment @relation(fields: [appointmentId], references: [appointmentId], onDelete: Cascade)
+
+  @@index([status])
+  @@index([earnedAt])
+}
+
+// =========================================================
+// ENUMS
+// =========================================================
+
+enum LabStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum LabTestStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ScanCenterStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ScanServiceStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CatalogStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum EquipmentStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum AppointmentType {
+  LAB
+  SCAN
+}
+
+enum AppointmentMode {
+  CENTER
+  HOME
+}
+
+enum AppointmentStatus {
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+enum AppointmentTestStatus {
+  PENDING
+  SAMPLE_COLLECTED
+  PROCESSING
+  COMPLETED
+}
+
+enum AppointmentServiceStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum CancellationReason {
+  PATIENT_REQUESTED
+  PATIENT_NOT_AVAILABLE
+  INCORRECT_BOOKING_DETAILS
+  EQUIPMENT_ISSUE
+  OTHER
+}
+
+enum HomeCollectionStatus {
+  PENDING
+  ASSIGNED
+  EN_ROUTE
+  SAMPLE_COLLECTED
+  IN_LAB
+  PROCESSING
+  REPORT_READY
+  COMPLETED
+  CANCELLED
+}
+
+enum CollectorStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CollectorAssignmentStatus {
+  ASSIGNED
+  ACCEPTED
+  COMPLETED
+  CANCELLED
+}
+
+enum HomeCollectionTrackingStatus {
+  ASSIGNED
+  EN_ROUTE
+  SAMPLE_COLLECTED
+  IN_LAB
+  PROCESSING
+  REPORT_READY
+  COMPLETED
+}
+
+enum ReportStatus {
+  PENDING
+  UPLOADED
+  SENT
+}
+
+enum EarningStatus {
+  PENDING
+  EARNED
+  PAID
+}
