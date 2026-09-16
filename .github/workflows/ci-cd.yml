@@ -45,11 +45,13 @@ jobs:
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
       github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     environment: production
     concurrency:
       group: deploy-production
       cancel-in-progress: false
+    permissions:
+      contents: read
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
@@ -59,29 +61,52 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_SSH_PORT || 22 }}
           script_stop: true
-          command_timeout: 12m
+          command_timeout: 18m
           script: |
             set -e
 
             APP_DIR="${{ secrets.EC2_APP_DIR }}"
+            REPO_SLUG="${{ github.repository }}"
 
+            echo "== Ensuring system dependencies =="
+            sudo apt-get update -y
+
+            if ! command -v node >/dev/null 2>&1; then
+              echo "Installing Node.js 22..."
+              curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+              sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+            fi
+
+            if ! command -v git >/dev/null 2>&1; then
+              sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
+            fi
+
+            if ! command -v pm2 >/dev/null 2>&1; then
+              sudo npm install -g pm2
+            fi
+
+            echo "== Ensuring app checkout at $APP_DIR =="
             if [ ! -d "$APP_DIR/.git" ]; then
-              echo "ERROR: $APP_DIR is not a git checkout. Clone the repo there manually first (see docs/deploy-to-ec2.md)." >&2
-              exit 1
+              echo "No checkout found — cloning fresh..."
+              mkdir -p "$APP_DIR"
+              git clone "https://x-access-token:${{ github.token }}@github.com/$REPO_SLUG.git" "$APP_DIR"
             fi
 
             cd "$APP_DIR"
 
-            if [ ! -f .env ]; then
-              echo "ERROR: .env not found in $APP_DIR. Create it manually before deploying (see docs/deploy-to-ec2.md)." >&2
-              exit 1
-            fi
-
-            PREV_COMMIT="$(git rev-parse HEAD)"
+            PREV_COMMIT="$(git rev-parse HEAD 2>/dev/null || echo "")"
 
             echo "Fetching latest main..."
+            git remote set-url origin "https://x-access-token:${{ github.token }}@github.com/$REPO_SLUG.git"
             git fetch origin main
             git reset --hard origin/main
+            # Don't leave the short-lived job token sitting in .git/config after we're done with it.
+            git remote set-url origin "https://github.com/$REPO_SLUG.git"
+
+            echo "== Writing .env from the APP_ENV_FILE secret =="
+            cat > .env <<'ENV_EOF'
+            ${{ secrets.APP_ENV_FILE }}
+            ENV_EOF
 
             echo "Installing dependencies..."
             npm ci
@@ -117,12 +142,19 @@ jobs:
               exit 0
             fi
 
-            echo "Health check failed after deploy. Rolling back to $PREV_COMMIT" >&2
-            git reset --hard "$PREV_COMMIT"
-            npm ci
-            npx prisma generate
-            npm run build
-            pm2 startOrReload ecosystem.config.js --update-env
-            pm2 save
-            echo "Rolled back code/app to $PREV_COMMIT. NOTE: any DB migrations applied during the failed deploy were NOT auto-reverted — check them manually." >&2
+            echo "Health check failed after deploy." >&2
+
+            if [ -n "$PREV_COMMIT" ]; then
+              echo "Rolling back to $PREV_COMMIT" >&2
+              git reset --hard "$PREV_COMMIT"
+              npm ci
+              npx prisma generate
+              npm run build
+              pm2 startOrReload ecosystem.config.js --update-env
+              pm2 save
+              echo "Rolled back code/app to $PREV_COMMIT. NOTE: any DB migrations applied during the failed deploy were NOT auto-reverted — check them manually." >&2
+            else
+              echo "No previous commit available — this was the first deploy, nothing to roll back to." >&2
+            fi
+
             exit 1
