@@ -16,6 +16,10 @@ export function createApp(): Application {
   app.use(express.urlencoded({ extended: true }));
   app.use(pinoHttp({ logger }));
 
+  app.get('/health', (_req, res) => {
+    res.status(200).json({ status: 'ok' });
+  });
+
   app.use('/api/v1', routes);
 
   app.use(notFoundHandler);

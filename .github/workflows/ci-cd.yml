@@ -1,0 +1,128 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    name: Build & type-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: build-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      # prisma7.config.ts resolves DATABASE_URL at config-load time; `prisma generate`
+      # and `tsc` never connect to it, so a placeholder is enough for CI.
+      DATABASE_URL: "postgresql://user:password@localhost:5432/labscan"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Build (tsc)
+        run: npm run build
+
+  deploy:
+    name: Deploy to EC2
+    needs: build
+    if: >
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT || 22 }}
+          script_stop: true
+          command_timeout: 12m
+          script: |
+            set -e
+
+            APP_DIR="${{ secrets.EC2_APP_DIR }}"
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "ERROR: $APP_DIR is not a git checkout. Clone the repo there manually first (see docs/deploy-to-ec2.md)." >&2
+              exit 1
+            fi
+
+            cd "$APP_DIR"
+
+            if [ ! -f .env ]; then
+              echo "ERROR: .env not found in $APP_DIR. Create it manually before deploying (see docs/deploy-to-ec2.md)." >&2
+              exit 1
+            fi
+
+            PREV_COMMIT="$(git rev-parse HEAD)"
+
+            echo "Fetching latest main..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "Installing dependencies..."
+            npm ci
+            npx prisma generate
+
+            echo "Applying database migrations..."
+            npx prisma migrate deploy
+
+            echo "Building..."
+            npm run build
+
+            echo "Reloading app under PM2..."
+            pm2 startOrReload ecosystem.config.js --update-env
+            pm2 save
+
+            set -a
+            . ./.env
+            set +a
+            PORT="${PORT:-8082}"
+
+            echo "Waiting for the app to become healthy on port $PORT..."
+            HEALTHY=0
+            for i in $(seq 1 15); do
+              if curl -fsS "http://localhost:$PORT/health" > /dev/null 2>&1; then
+                HEALTHY=1
+                break
+              fi
+              sleep 2
+            done
+
+            if [ "$HEALTHY" -eq 1 ]; then
+              echo "Deploy succeeded — app is healthy."
+              exit 0
+            fi
+
+            echo "Health check failed after deploy. Rolling back to $PREV_COMMIT" >&2
+            git reset --hard "$PREV_COMMIT"
+            npm ci
+            npx prisma generate
+            npm run build
+            pm2 startOrReload ecosystem.config.js --update-env
+            pm2 save
+            echo "Rolled back code/app to $PREV_COMMIT. NOTE: any DB migrations applied during the failed deploy were NOT auto-reverted — check them manually." >&2
+            exit 1
