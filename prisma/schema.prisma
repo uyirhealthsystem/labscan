@@ -27,6 +27,7 @@ model Lab {
 
   tests        LabTest[]
   appointments Appointment[]
+  collectors   Collector[]
 
   @@index([labUserId])
   @@index([districtId])
@@ -46,7 +47,8 @@ model LabTest {
 
   price          Decimal?
   turnaroundTime Int?
-  status         LabTestStatus @default(ACTIVE)
+
+  status LabTestStatus @default(ACTIVE)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -74,6 +76,10 @@ model LabTestCatalog {
   description String?
   category    String?
 
+  fastingRequirement      FastingRequirement @default(NOT_REQUIRED)
+  fastingHours            Int?
+  preparationInstructions String?
+
   status CatalogStatus @default(ACTIVE)
 
   createdAt DateTime @default(now())
@@ -84,6 +90,7 @@ model LabTestCatalog {
   @@index([name])
   @@index([category])
   @@index([status])
+  @@index([fastingRequirement])
 }
 
 // =========================================================
@@ -308,10 +315,16 @@ model AppointmentTest {
 
   status AppointmentTestStatus @default(PENDING)
 
+  fastingRequirement      FastingRequirement?
+  fastingHours            Int?
+  preparationInstructions String?
+
   createdAt DateTime @default(now())
 
   appointment Appointment @relation(fields: [appointmentId], references: [appointmentId], onDelete: Cascade)
   labTest     LabTest     @relation(fields: [labTestId], references: [labTestId])
+
+  samples Sample[]
 
   @@unique([appointmentId, labTestId])
   @@index([appointmentId])
@@ -426,6 +439,8 @@ model HomeCollection {
   collectorAssignment CollectorAssignment?
   trackingEvents      HomeCollectionTracking[]
 
+  samples Sample[]
+
   @@index([status])
   @@index([createdAt])
 }
@@ -442,15 +457,29 @@ model Collector {
   name  String
   phone String?
 
+  role CollectorRole @default(TECHNICIAN)
+
+  qualification         String?
+  qualificationNumber   String?
+  qualificationProofUrl String?
+
+  qualificationStatus QualificationStatus @default(PENDING)
+
   status CollectorStatus @default(ACTIVE)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  lab Lab @relation(fields: [labId], references: [labId])
+
   assignments CollectorAssignment[]
+
+  samples Sample[]
 
   @@index([labId])
   @@index([status])
+  @@index([role])
+  @@index([qualificationStatus])
 }
 
 // =========================================================
@@ -468,7 +497,8 @@ model CollectorAssignment {
   status CollectorAssignmentStatus @default(ASSIGNED)
 
   homeCollection HomeCollection @relation(fields: [homeCollectionId], references: [homeCollectionId], onDelete: Cascade)
-  collector      Collector      @relation(fields: [collectorId], references: [collectorId])
+
+  collector Collector @relation(fields: [collectorId], references: [collectorId])
 
   @@index([collectorId])
   @@index([status])
@@ -494,6 +524,101 @@ model HomeCollectionTracking {
   @@index([homeCollectionId])
   @@index([status])
   @@index([createdAt])
+}
+
+// =========================================================
+// SAMPLE
+// =========================================================
+
+model Sample {
+  sampleId String @id @default(uuid())
+
+  appointmentTestId String
+  homeCollectionId  String?
+  collectorId       String?
+
+  barcode String @unique
+
+  sampleType    String
+  containerType String?
+
+  status SampleStatus @default(COLLECTED)
+
+  collectedAt DateTime?
+  receivedAt  DateTime?
+
+  condition SampleCondition @default(GOOD)
+
+  rejectionReason String?
+  notes           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointmentTest AppointmentTest @relation(fields: [appointmentTestId], references: [appointmentTestId], onDelete: Cascade)
+
+  homeCollection HomeCollection? @relation(fields: [homeCollectionId], references: [homeCollectionId])
+
+  collector Collector? @relation(fields: [collectorId], references: [collectorId])
+
+  trackingEvents   SampleTracking[]
+  otpVerifications SampleOtpVerification[]
+
+  @@index([appointmentTestId])
+  @@index([homeCollectionId])
+  @@index([collectorId])
+  @@index([status])
+  @@index([barcode])
+}
+
+// =========================================================
+// SAMPLE TRACKING
+// =========================================================
+
+model SampleTracking {
+  sampleTrackingId String @id @default(uuid())
+
+  sampleId String
+
+  status SampleTrackingStatus
+
+  notes String?
+
+  createdAt DateTime @default(now())
+
+  sample Sample @relation(fields: [sampleId], references: [sampleId], onDelete: Cascade)
+
+  @@index([sampleId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// =========================================================
+// SAMPLE OTP VERIFICATION
+// =========================================================
+
+model SampleOtpVerification {
+  verificationId String @id @default(uuid())
+
+  sampleId String
+
+  purpose SampleOtpPurpose @default(COLLECTION_VERIFICATION)
+
+  otpHash String
+
+  verified Boolean @default(false)
+
+  generatedAt DateTime  @default(now())
+  expiresAt   DateTime
+  verifiedAt  DateTime?
+
+  attempts Int @default(0)
+
+  sample Sample @relation(fields: [sampleId], references: [sampleId], onDelete: Cascade)
+
+  @@index([sampleId])
+  @@index([expiresAt])
+  @@index([purpose])
 }
 
 // =========================================================
@@ -695,4 +820,56 @@ enum EarningStatus {
   PENDING
   EARNED
   PAID
+}
+
+enum CollectorRole {
+  NURSE
+  TECHNICIAN
+}
+
+enum QualificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum FastingRequirement {
+  NOT_REQUIRED
+  REQUIRED
+  OPTIONAL
+}
+
+enum SampleStatus {
+  PENDING_COLLECTION
+  COLLECTED
+  IN_TRANSIT
+  RECEIVED
+  PROCESSING
+  REJECTED
+  COMPLETED
+}
+
+enum SampleCondition {
+  GOOD
+  DAMAGED
+  LEAKED
+  INSUFFICIENT
+  HEMOLYZED
+  REJECTED
+}
+
+enum SampleTrackingStatus {
+  BARCODE_SCANNED
+  COLLECTED
+  IN_TRANSIT
+  RECEIVED_AT_LAB
+  ACCEPTED
+  REJECTED
+  PROCESSING_STARTED
+  COMPLETED
+}
+
+enum SampleOtpPurpose {
+  COLLECTION_VERIFICATION
+  SAMPLE_HANDOVER
 }

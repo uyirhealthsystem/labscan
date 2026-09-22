@@ -1,3 +1,4 @@
+
 import { Request, Response } from "express";
 
 import {
@@ -23,6 +24,9 @@ export async function createLabTestCatalogController(
       description,
       category,
       status,
+      fastingRequirement,
+      fastingHours,
+      preparationInstructions,
     } = req.body;
 
     if (!code || !name) {
@@ -38,6 +42,9 @@ export async function createLabTestCatalogController(
       description,
       category,
       status,
+      fastingRequirement,
+      fastingHours,
+      preparationInstructions,
     });
 
     return res.status(201).json({
@@ -114,9 +121,29 @@ export async function updateLabTestCatalogController(
   try {
     const { testCatalogId } = req.params;
 
+    const {
+      code,
+      name,
+      description,
+      category,
+      status,
+      fastingRequirement,
+      fastingHours,
+      preparationInstructions,
+    } = req.body;
+
     const catalog = await updateLabTestCatalog(
       testCatalogId,
-      req.body,
+      {
+        code,
+        name,
+        description,
+        category,
+        status,
+        fastingRequirement,
+        fastingHours,
+        preparationInstructions,
+      },
     );
 
     return res.status(200).json({

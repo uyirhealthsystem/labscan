@@ -42,12 +42,22 @@ export interface CreateCollectorInput {
   labId: string;
   name: string;
   phone?: string;
+  role?: "NURSE" | "TECHNICIAN";
+  qualification?: string;
+  qualificationNumber?: string;
+  qualificationProofUrl?: string;
+  qualificationStatus?: "PENDING" | "VERIFIED" | "REJECTED";
   status?: "ACTIVE" | "INACTIVE";
 }
 
 export interface UpdateCollectorInput {
   name?: string;
   phone?: string;
+  role?: "NURSE" | "TECHNICIAN";
+  qualification?: string;
+  qualificationNumber?: string;
+  qualificationProofUrl?: string;
+  qualificationStatus?: "PENDING" | "VERIFIED" | "REJECTED";
   status?: "ACTIVE" | "INACTIVE";
 }
 
@@ -289,6 +299,11 @@ export async function createCollector(
       labId: data.labId,
       name: data.name,
       phone: data.phone,
+      role: data.role,
+      qualification: data.qualification,
+      qualificationNumber: data.qualificationNumber,
+      qualificationProofUrl: data.qualificationProofUrl,
+      qualificationStatus: data.qualificationStatus,
       status: data.status,
     },
     include: {
@@ -375,10 +390,18 @@ export async function updateCollector(
     where: {
       collectorId,
     },
-    data,
+    data: {
+      name: data.name,
+      phone: data.phone,
+      role: data.role,
+      qualification: data.qualification,
+      qualificationNumber: data.qualificationNumber,
+      qualificationProofUrl: data.qualificationProofUrl,
+      qualificationStatus: data.qualificationStatus,
+      status: data.status,
+    },
   });
 }
-
 export async function deleteCollector(
   collectorId: string,
 ) {
@@ -444,9 +467,15 @@ export async function createCollectorAssignment(
     );
   }
 
-  if (collector.status !== "ACTIVE") {
-    throw new Error("Collector is not active");
-  }
+if (collector.status !== "ACTIVE") {
+  throw new Error("Collector is not active");
+}
+
+if (collector.qualificationStatus !== "VERIFIED") {
+  throw new Error(
+    "Collector qualification is not verified",
+  );
+}
 
   const existing =
     await prisma.collectorAssignment.findUnique({

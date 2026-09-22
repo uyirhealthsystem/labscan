@@ -7,6 +7,7 @@ import appointmentRoutes from "../routes/appointment.route"
 import appointmentlifecycleRoutes from "../routes/appointmentlifecycle.route"
 import homeCollectionRoutes from "../routes/homecollection.route";
 import reportRoutes from "../routes/report.route"
+import sampleRoutes from "../routes/sample.route"
 const router = Router();
 
 
@@ -18,5 +19,6 @@ router.use('/',appointmentRoutes);
 router.use('/',appointmentlifecycleRoutes);
 router.use('/',homeCollectionRoutes);
 router.use('/',reportRoutes);
+router.use('/',sampleRoutes)
 
 export default router;

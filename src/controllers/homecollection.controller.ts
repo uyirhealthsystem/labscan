@@ -174,6 +174,11 @@ export async function createCollectorController(
       labId,
       name,
       phone,
+      role,
+      qualification,
+      qualificationNumber,
+      qualificationProofUrl,
+      qualificationStatus,
       status,
     } = req.body;
 
@@ -188,6 +193,11 @@ export async function createCollectorController(
       labId,
       name,
       phone,
+      role,
+      qualification,
+      qualificationNumber,
+      qualificationProofUrl,
+      qualificationStatus,
       status,
     });
 

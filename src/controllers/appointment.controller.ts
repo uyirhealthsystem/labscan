@@ -1,3 +1,4 @@
+
 import { Request, Response } from "express";
 
 import {
@@ -18,7 +19,7 @@ import {
   updateAppointmentService,
   updateAppointmentTest,
   getAllAppointmentTests,
-  getAllAppointmentServices
+  getAllAppointmentServices,
 } from "../services/appointment.service";
 
 // =========================================================
@@ -44,7 +45,7 @@ export async function createAppointmentController(
       status,
       patientNotes,
       tests,
-  services,
+      services,
     } = req.body;
 
     if (
@@ -77,7 +78,7 @@ export async function createAppointmentController(
       status,
       patientNotes,
       tests,
-  services,
+      services,
     });
 
     return res.status(201).json({
@@ -214,7 +215,6 @@ export async function createAppointmentTestController(
     const {
       appointmentId,
       labTestId,
-      price,
       status,
     } = req.body;
 
@@ -230,7 +230,6 @@ export async function createAppointmentTestController(
       await createAppointmentTest({
         appointmentId,
         labTestId,
-        price,
         status,
       });
 
@@ -252,7 +251,8 @@ export async function getAllAppointmentTestsController(
   res: Response,
 ): Promise<void> {
   try {
-    const appointmentTests = await getAllAppointmentTests();
+    const appointmentTests =
+      await getAllAppointmentTests();
 
     res.status(200).json({
       status: "success",
@@ -301,7 +301,9 @@ export async function getAppointmentTestByIdController(
     const { appointmentTestId } = req.params;
 
     const appointmentTest =
-      await getAppointmentTestById(appointmentTestId);
+      await getAppointmentTestById(
+        appointmentTestId,
+      );
 
     return res.status(200).json({
       status: "success",
@@ -375,7 +377,6 @@ export async function createAppointmentServiceController(
       appointmentId,
       scanServiceId,
       equipmentId,
-      price,
       status,
     } = req.body;
 
@@ -392,7 +393,6 @@ export async function createAppointmentServiceController(
         appointmentId,
         scanServiceId,
         equipmentId,
-        price,
         status,
       });
 
@@ -414,7 +414,8 @@ export async function getAllAppointmentServicesController(
   res: Response,
 ): Promise<void> {
   try {
-    const appointmentServices = await getAllAppointmentServices();
+    const appointmentServices =
+      await getAllAppointmentServices();
 
     res.status(200).json({
       status: "success",

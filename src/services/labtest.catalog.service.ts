@@ -9,6 +9,9 @@ export interface CreateLabTestCatalogInput {
   name: string;
   description?: string;
   category?: string;
+  fastingRequirement?: "REQUIRED" | "NOT_REQUIRED" | "OPTIONAL";
+  fastingHours?: number;
+  preparationInstructions?: string;
   status?: "ACTIVE" | "INACTIVE";
 }
 
@@ -21,6 +24,9 @@ export interface UpdateLabTestCatalogInput {
   name?: string;
   description?: string;
   category?: string;
+  fastingRequirement?: "REQUIRED" | "NOT_REQUIRED" | "OPTIONAL";
+  fastingHours?: number;
+  preparationInstructions?: string;
   status?: "ACTIVE" | "INACTIVE";
 }
 
@@ -43,15 +49,18 @@ export async function createLabTestCatalog(
     );
   }
 
-  return prisma.labTestCatalog.create({
-    data: {
-      code: data.code,
-      name: data.name,
-      description: data.description,
-      category: data.category,
-      status: data.status,
-    },
-  });
+ return prisma.labTestCatalog.create({
+  data: {
+    code: data.code,
+    name: data.name,
+    description: data.description,
+    category: data.category,
+    fastingRequirement: data.fastingRequirement,
+    fastingHours: data.fastingHours,
+    preparationInstructions: data.preparationInstructions,
+    status: data.status,
+  },
+});
 }
 
 // =========================================================
@@ -119,12 +128,21 @@ export async function updateLabTestCatalog(
     }
   }
 
-  return prisma.labTestCatalog.update({
-    where: {
-      testCatalogId,
-    },
-    data,
-  });
+ return prisma.labTestCatalog.update({
+  where: {
+    testCatalogId,
+  },
+  data: {
+    code: data.code,
+    name: data.name,
+    description: data.description,
+    category: data.category,
+    fastingRequirement: data.fastingRequirement,
+    fastingHours: data.fastingHours,
+    preparationInstructions: data.preparationInstructions,
+    status: data.status,
+  },
+});
 }
 
 // =========================================================

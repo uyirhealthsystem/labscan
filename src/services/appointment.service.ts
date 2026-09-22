@@ -1,30 +1,40 @@
 
 import { prisma } from "./prisma.service";
 
+// =========================================================
+// TYPES
+// =========================================================
+
 export interface CreateAppointmentInput {
   bookingId: string;
   patientId: string;
   labId?: string;
   scanCenterId?: string;
+
   appointmentType: "LAB" | "SCAN";
   appointmentMode: "CENTER" | "HOME";
+
   appointmentDate: string;
   startTime: string;
   endTime: string;
+
   address?: string;
-  status?: "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "RESCHEDULED";
+  status?:
+    | "CONFIRMED"
+    | "IN_PROGRESS"
+    | "COMPLETED"
+    | "CANCELLED"
+    | "RESCHEDULED";
+
   patientNotes?: string;
 
-  // Selected tests for LAB appointment
   tests?: {
     labTestId: string;
   }[];
 
-  // Selected services for SCAN appointment
   services?: {
     scanServiceId: string;
     equipmentId?: string;
-
   }[];
 }
 
@@ -33,44 +43,50 @@ export interface UpdateAppointmentInput {
   startTime?: string;
   endTime?: string;
   address?: string;
-  status?: "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "RESCHEDULED";
+  status?:
+    | "CONFIRMED"
+    | "IN_PROGRESS"
+    | "COMPLETED"
+    | "CANCELLED"
+    | "RESCHEDULED";
   patientNotes?: string;
 }
 
+// Price is NOT accepted from client.
+// It is automatically copied from LabTest.price.
 export interface CreateAppointmentTestInput {
   appointmentId: string;
   labTestId: string;
-  price?: number | string;
   status?: "PENDING" | "SAMPLE_COLLECTED" | "PROCESSING" | "COMPLETED";
 }
 
+// Price is NOT updateable.
+// AppointmentTest keeps the booking-time price snapshot.
 export interface UpdateAppointmentTestInput {
-  price?: number | string;
   status?: "PENDING" | "SAMPLE_COLLECTED" | "PROCESSING" | "COMPLETED";
 }
 
+// Price is NOT accepted from client.
+// It is automatically copied from ScanService.price.
 export interface CreateAppointmentServiceInput {
   appointmentId: string;
   scanServiceId: string;
   equipmentId?: string;
-  price?: number | string;
   status?: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 }
 
+// Price is NOT updateable.
+// AppointmentService keeps the booking-time price snapshot.
 export interface UpdateAppointmentServiceInput {
   equipmentId?: string;
-  price?: number | string;
   status?: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 }
 
-
 // =========================================================
-// APPOINTMENT
+// CREATE APPOINTMENT
 // =========================================================
 
-export async function createAppointment(
-  data: CreateAppointmentInput,
-) {
+export async function createAppointment(data: CreateAppointmentInput) {
   // -------------------------------------------------------
   // Validate patient
   // -------------------------------------------------------
@@ -86,7 +102,7 @@ export async function createAppointment(
   }
 
   // -------------------------------------------------------
-  // LAB appointment validation
+  // Validate appointment type
   // -------------------------------------------------------
 
   if (data.appointmentType === "LAB") {
@@ -95,10 +111,20 @@ export async function createAppointment(
     }
 
     if (data.scanCenterId) {
-      throw new Error(
-        "scanCenterId should not be provided for LAB appointment",
-      );
+      throw new Error("scanCenterId is not allowed for LAB appointment");
     }
+
+    if (!data.tests || data.tests.length === 0) {
+      throw new Error("At least one lab test is required");
+    }
+
+    if (data.services && data.services.length > 0) {
+      throw new Error("services are not allowed for LAB appointment");
+    }
+
+    // -----------------------------------------------------
+    // Validate Lab
+    // -----------------------------------------------------
 
     const lab = await prisma.lab.findUnique({
       where: {
@@ -110,22 +136,22 @@ export async function createAppointment(
       throw new Error("Lab not found");
     }
 
-    // LAB appointment should have at least one selected test
-    if (!data.tests || data.tests.length === 0) {
-      throw new Error(
-        "At least one lab test is required for LAB appointment",
-      );
-    }
-
-    // SCAN services should not be provided
-    if (data.services && data.services.length > 0) {
-      throw new Error(
-        "services should not be provided for LAB appointment",
-      );
+    if (lab.status !== "ACTIVE") {
+      throw new Error("Lab is not active");
     }
 
     // -----------------------------------------------------
-    // Validate every selected lab test
+    // Prevent duplicate lab tests
+    // -----------------------------------------------------
+
+    const labTestIds = data.tests.map((test) => test.labTestId);
+
+    if (new Set(labTestIds).size !== labTestIds.length) {
+      throw new Error("Duplicate lab tests are not allowed");
+    }
+
+    // -----------------------------------------------------
+    // Validate every LabTest
     // -----------------------------------------------------
 
     for (const test of data.tests) {
@@ -136,55 +162,45 @@ export async function createAppointment(
       });
 
       if (!labTest) {
-        throw new Error(
-          `Lab test not found: ${test.labTestId}`,
-        );
+        throw new Error(`Lab test not found: ${test.labTestId}`);
       }
 
       if (labTest.labId !== data.labId) {
         throw new Error(
-          `Lab test ${test.labTestId} does not belong to the selected lab`,
+          `Lab test ${test.labTestId} does not belong to this lab`,
         );
       }
 
       if (labTest.status !== "ACTIVE") {
-        throw new Error(
-          `Lab test ${test.labTestId} is not active`,
-        );
+        throw new Error(`Lab test ${test.labTestId} is not active`);
       }
-    }
-
-    // Prevent duplicate test IDs in the same booking
-    const testIds = data.tests.map(
-      (test) => test.labTestId,
-    );
-
-    const uniqueTestIds = new Set(testIds);
-
-    if (uniqueTestIds.size !== testIds.length) {
-      throw new Error(
-        "The same lab test cannot be added more than once",
-      );
     }
   }
 
-
-  // -------------------------------------------------------
-  // SCAN appointment validation
-  // -------------------------------------------------------
+  // =======================================================
+  // SCAN APPOINTMENT
+  // =======================================================
 
   if (data.appointmentType === "SCAN") {
     if (!data.scanCenterId) {
-      throw new Error(
-        "scanCenterId is required for SCAN appointment",
-      );
+      throw new Error("scanCenterId is required for SCAN appointment");
     }
 
     if (data.labId) {
-      throw new Error(
-        "labId should not be provided for SCAN appointment",
-      );
+      throw new Error("labId is not allowed for SCAN appointment");
     }
+
+    if (!data.services || data.services.length === 0) {
+      throw new Error("At least one scan service is required");
+    }
+
+    if (data.tests && data.tests.length > 0) {
+      throw new Error("tests are not allowed for SCAN appointment");
+    }
+
+    // -----------------------------------------------------
+    // Validate Scan Center
+    // -----------------------------------------------------
 
     const scanCenter = await prisma.scanCenter.findUnique({
       where: {
@@ -196,22 +212,26 @@ export async function createAppointment(
       throw new Error("Scan center not found");
     }
 
-    // SCAN appointment should have at least one selected service
-    if (!data.services || data.services.length === 0) {
-      throw new Error(
-        "At least one scan service is required for SCAN appointment",
-      );
-    }
-
-    // LAB tests should not be provided
-    if (data.tests && data.tests.length > 0) {
-      throw new Error(
-        "tests should not be provided for SCAN appointment",
-      );
+    if (scanCenter.status !== "ACTIVE") {
+      throw new Error("Scan center is not active");
     }
 
     // -----------------------------------------------------
-    // Validate every selected scan service
+    // Prevent duplicate services
+    // -----------------------------------------------------
+
+    const scanServiceIds = data.services.map(
+      (service) => service.scanServiceId,
+    );
+
+    if (
+      new Set(scanServiceIds).size !== scanServiceIds.length
+    ) {
+      throw new Error("Duplicate scan services are not allowed");
+    }
+
+    // -----------------------------------------------------
+    // Validate every ScanService
     // -----------------------------------------------------
 
     for (const service of data.services) {
@@ -227,11 +247,9 @@ export async function createAppointment(
         );
       }
 
-      if (
-        scanService.scanCenterId !== data.scanCenterId
-      ) {
+      if (scanService.scanCenterId !== data.scanCenterId) {
         throw new Error(
-          `Scan service ${service.scanServiceId} does not belong to the selected scan center`,
+          `Scan service ${service.scanServiceId} does not belong to this scan center`,
         );
       }
 
@@ -241,29 +259,28 @@ export async function createAppointment(
         );
       }
 
-      // HOME scan must support home service
+      // ---------------------------------------------------
+      // HOME service validation
+      // ---------------------------------------------------
+
       if (
         data.appointmentMode === "HOME" &&
         !scanService.homeServiceAvailable
       ) {
         throw new Error(
-          `Scan service ${service.scanServiceId} is not available for home service`,
+          `Home service is not available for scan service ${service.scanServiceId}`,
         );
       }
 
-      // Equipment required
-      if (
-        scanService.equipmentRequired &&
-        !service.equipmentId
-      ) {
+      // ---------------------------------------------------
+      // Equipment validation
+      // ---------------------------------------------------
+
+      if (scanService.equipmentRequired && !service.equipmentId) {
         throw new Error(
           `equipmentId is required for scan service ${service.scanServiceId}`,
         );
       }
-
-      // ---------------------------------------------------
-      // Validate equipment if provided
-      // ---------------------------------------------------
 
       if (service.equipmentId) {
         const equipment = await prisma.equipment.findUnique({
@@ -278,11 +295,9 @@ export async function createAppointment(
           );
         }
 
-        if (
-          equipment.scanCenterId !== data.scanCenterId
-        ) {
+        if (equipment.scanCenterId !== data.scanCenterId) {
           throw new Error(
-            `Equipment ${service.equipmentId} does not belong to the selected scan center`,
+            `Equipment ${service.equipmentId} does not belong to this scan center`,
           );
         }
 
@@ -292,43 +307,27 @@ export async function createAppointment(
           );
         }
 
-        // Equipment must be mapped to this service
-        const equipmentMapping =
-          await prisma.equipmentService.findUnique({
+        // Check equipment is mapped to this scan service
+        const equipmentService =
+          await prisma.equipmentService.findFirst({
             where: {
-              equipmentId_scanServiceId: {
-                equipmentId: service.equipmentId,
-                scanServiceId: service.scanServiceId,
-              },
+              equipmentId: service.equipmentId,
+              scanServiceId: service.scanServiceId,
             },
           });
 
-        if (!equipmentMapping) {
+        if (!equipmentService) {
           throw new Error(
             `Equipment ${service.equipmentId} is not mapped to scan service ${service.scanServiceId}`,
           );
         }
       }
     }
-
-    // Prevent duplicate service IDs
-    const serviceIds = data.services.map(
-      (service) => service.scanServiceId,
-    );
-
-    const uniqueServiceIds = new Set(serviceIds);
-
-    if (uniqueServiceIds.size !== serviceIds.length) {
-      throw new Error(
-        "The same scan service cannot be added more than once",
-      );
-    }
   }
 
-
-  // -------------------------------------------------------
-  // HOME appointment requires address
-  // -------------------------------------------------------
+  // =======================================================
+  // HOME APPOINTMENT ADDRESS
+  // =======================================================
 
   if (
     data.appointmentMode === "HOME" &&
@@ -339,144 +338,158 @@ export async function createAppointment(
     );
   }
 
+  // =======================================================
+  // DUPLICATE BOOKING
+  // =======================================================
 
-  // -------------------------------------------------------
-  // Check duplicate booking ID
-  // -------------------------------------------------------
-
-  const existingBooking =
+  const existingAppointment =
     await prisma.appointment.findUnique({
       where: {
         bookingId: data.bookingId,
       },
     });
 
-  if (existingBooking) {
+  if (existingAppointment) {
     throw new Error(
-      `Appointment with bookingId ${data.bookingId} already exists`,
+      "Appointment already exists for this bookingId",
     );
   }
 
+  // =======================================================
+  // CREATE APPOINTMENT
+  // =======================================================
+
+  const appointment = await prisma.$transaction(
+    async (tx) => {
+      const createdAppointment =
+        await tx.appointment.create({
+          data: {
+            bookingId: data.bookingId,
+            patientId: data.patientId,
+            labId: data.labId,
+            scanCenterId: data.scanCenterId,
+            appointmentType: data.appointmentType,
+            appointmentMode: data.appointmentMode,
+            appointmentDate: new Date(data.appointmentDate),
+            startTime: new Date(data.startTime),
+            endTime: new Date(data.endTime),
+            address: data.address,
+            status: data.status ?? "CONFIRMED",
+            patientNotes: data.patientNotes,
+          },
+        });
+
+      // ===================================================
+      // LAB TESTS
+      // ===================================================
+
+      if (
+        data.appointmentType === "LAB" &&
+        data.tests
+      ) {
+        for (const test of data.tests) {
+          const labTest = await tx.labTest.findUnique({
+            where: {
+              labTestId: test.labTestId,
+            },
+            include: {
+              testCatalog: true,
+            },
+          });
+
+          if (!labTest) {
+            throw new Error(
+              `Lab test not found: ${test.labTestId}`,
+            );
+          }
+
+          await tx.appointmentTest.create({
+            data: {
+              appointmentId:
+                createdAppointment.appointmentId,
+
+              labTestId: labTest.labTestId,
+
+              // IMPORTANT:
+              // Price comes from LabTest, NOT request body
+              price: labTest.price,
+
+              status: "PENDING",
+
+              // Snapshot catalog information
+              fastingRequirement:
+                labTest.testCatalog.fastingRequirement,
+
+              fastingHours:
+                labTest.testCatalog.fastingHours,
+
+              preparationInstructions:
+                labTest.testCatalog.preparationInstructions,
+            },
+          });
+        }
+      }
+
+      // ===================================================
+      // SCAN SERVICES
+      // ===================================================
+
+      if (
+        data.appointmentType === "SCAN" &&
+        data.services
+      ) {
+        for (const service of data.services) {
+          const scanService =
+            await tx.scanService.findUnique({
+              where: {
+                scanServiceId: service.scanServiceId,
+              },
+            });
+
+          if (!scanService) {
+            throw new Error(
+              `Scan service not found: ${service.scanServiceId}`,
+            );
+          }
+
+          await tx.appointmentService.create({
+            data: {
+              appointmentId:
+                createdAppointment.appointmentId,
+
+              scanServiceId:
+                scanService.scanServiceId,
+
+              equipmentId:
+                service.equipmentId,
+
+              // IMPORTANT:
+              // Price comes from ScanService, NOT request body
+              price: scanService.price,
+
+              status: "PENDING",
+            },
+          });
+        }
+      }
+
+      return createdAppointment;
+    },
+  );
 
   // =======================================================
-  // CREATE EVERYTHING IN ONE TRANSACTION
+  // RETURN FULL APPOINTMENT
   // =======================================================
 
-  return prisma.$transaction(async (tx) => {
-    // -----------------------------------------------------
-    // Create appointment
-    // -----------------------------------------------------
-
-    const appointment = await tx.appointment.create({
-      data: {
-        bookingId: data.bookingId,
-        patientId: data.patientId,
-        labId: data.labId,
-        scanCenterId: data.scanCenterId,
-        appointmentType: data.appointmentType,
-        appointmentMode: data.appointmentMode,
-        appointmentDate: new Date(
-          data.appointmentDate,
-        ),
-        startTime: new Date(data.startTime),
-        endTime: new Date(data.endTime),
-        address: data.address,
-        status: data.status,
-        patientNotes: data.patientNotes,
-      },
-    });
-
-
-    // -----------------------------------------------------
-    // Create selected LAB tests
-    // -----------------------------------------------------
-
-    if (
-      data.appointmentType === "LAB" &&
-      data.tests
-    ) {
-      await tx.appointmentTest.createMany({
-        data: data.tests.map((test) => ({
-          appointmentId:
-            appointment.appointmentId,
-          labTestId: test.labTestId,
-          status: "PENDING",
-        })),
-      });
-    }
-
-
-    // -----------------------------------------------------
-    // Create selected SCAN services
-    // -----------------------------------------------------
-
-    if (
-      data.appointmentType === "SCAN" &&
-      data.services
-    ) {
-      await tx.appointmentService.createMany({
-        data: data.services.map((service) => ({
-          appointmentId:
-            appointment.appointmentId,
-          scanServiceId: service.scanServiceId,
-          equipmentId: service.equipmentId,
-          status: "PENDING",
-        })),
-      });
-    }
-
-
-    // -----------------------------------------------------
-    // Return complete appointment
-    // -----------------------------------------------------
-
-    return tx.appointment.findUnique({
-      where: {
-        appointmentId:
-          appointment.appointmentId,
-      },
-      include: {
-        patient: true,
-
-        lab: true,
-
-        scanCenter: true,
-
-        tests: {
-          include: {
-            labTest: {
-              include: {
-                testCatalog: true,
-              },
-            },
-          },
-        },
-
-        services: {
-          include: {
-            scanService: {
-              include: {
-                serviceCatalog: true,
-              },
-            },
-            equipment: true,
-          },
-        },
-      },
-    });
-  });
-}
-
-
-// =========================================================
-// GET APPOINTMENTS
-// =========================================================
-
-export async function getAppointments() {
-  return prisma.appointment.findMany({
+  return prisma.appointment.findUnique({
+    where: {
+      appointmentId: appointment.appointmentId,
+    },
     include: {
       patient: true,
+
       lab: true,
+
       scanCenter: true,
 
       tests: {
@@ -499,14 +512,69 @@ export async function getAppointments() {
           equipment: true,
         },
       },
-    },
 
-    orderBy: {
-      appointmentDate: "desc",
+      homeCollection: true,
+
+      cancellation: true,
+
+      reschedules: true,
+
+      report: true,
+
+      earning: true,
     },
   });
 }
 
+// =========================================================
+// GET ALL APPOINTMENTS
+// =========================================================
+
+export async function getAppointments() {
+  return prisma.appointment.findMany({
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: {
+      patient: true,
+
+      lab: true,
+
+      scanCenter: true,
+
+      tests: {
+        include: {
+          labTest: {
+            include: {
+              testCatalog: true,
+            },
+          },
+        },
+      },
+
+      services: {
+        include: {
+          scanService: {
+            include: {
+              serviceCatalog: true,
+            },
+          },
+          equipment: true,
+        },
+      },
+
+      homeCollection: true,
+
+      cancellation: true,
+
+      reschedules: true,
+
+      report: true,
+
+      earning: true,
+    },
+  });
+}
 
 // =========================================================
 // GET APPOINTMENTS BY PATIENT
@@ -529,9 +597,12 @@ export async function getAppointmentsByPatient(
     where: {
       patientId,
     },
-
+    orderBy: {
+      createdAt: "desc",
+    },
     include: {
       lab: true,
+
       scanCenter: true,
 
       tests: {
@@ -554,14 +625,19 @@ export async function getAppointmentsByPatient(
           equipment: true,
         },
       },
-    },
 
-    orderBy: {
-      appointmentDate: "desc",
+      homeCollection: true,
+
+      cancellation: true,
+
+      reschedules: true,
+
+      report: true,
+
+      earning: true,
     },
   });
 }
-
 
 // =========================================================
 // GET APPOINTMENT BY ID
@@ -575,7 +651,6 @@ export async function getAppointmentById(
       where: {
         appointmentId,
       },
-
       include: {
         patient: true,
 
@@ -604,17 +679,13 @@ export async function getAppointmentById(
           },
         },
 
+        homeCollection: true,
+
         cancellation: true,
 
         reschedules: true,
 
-        homeCollection: true,
-
-        report: {
-          include: {
-            files: true,
-          },
-        },
+        report: true,
 
         earning: true,
       },
@@ -626,7 +697,6 @@ export async function getAppointmentById(
 
   return appointment;
 }
-
 
 // =========================================================
 // UPDATE APPOINTMENT
@@ -651,7 +721,6 @@ export async function updateAppointment(
     where: {
       appointmentId,
     },
-
     data: {
       appointmentDate: data.appointmentDate
         ? new Date(data.appointmentDate)
@@ -666,13 +735,16 @@ export async function updateAppointment(
         : undefined,
 
       address: data.address,
+
       status: data.status,
+
       patientNotes: data.patientNotes,
     },
-
     include: {
       patient: true,
+
       lab: true,
+
       scanCenter: true,
 
       tests: {
@@ -695,10 +767,11 @@ export async function updateAppointment(
           equipment: true,
         },
       },
+
+      homeCollection: true,
     },
   });
 }
-
 
 // =========================================================
 // DELETE APPOINTMENT
@@ -718,17 +791,23 @@ export async function deleteAppointment(
     throw new Error("Appointment not found");
   }
 
-  return prisma.appointment.delete({
+  await prisma.appointment.delete({
     where: {
       appointmentId,
     },
   });
+
+  return true;
 }
 
-
 // =========================================================
-// APPOINTMENT TEST
+// CREATE APPOINTMENT TEST
 // =========================================================
+// This is only for adding a test later to an existing
+// appointment.
+//
+// Normal appointment creation already creates AppointmentTest
+// automatically.
 
 export async function createAppointmentTest(
   data: CreateAppointmentTestInput,
@@ -746,22 +825,22 @@ export async function createAppointmentTest(
 
   if (appointment.appointmentType !== "LAB") {
     throw new Error(
-      "Appointment test can only be added to LAB appointment",
+      "AppointmentTest can only be created for LAB appointment",
     );
   }
 
   if (!appointment.labId) {
-    throw new Error(
-      "LAB appointment does not have labId",
-    );
+    throw new Error("Appointment labId not found");
   }
 
-  const labTest =
-    await prisma.labTest.findUnique({
-      where: {
-        labTestId: data.labTestId,
-      },
-    });
+  const labTest = await prisma.labTest.findUnique({
+    where: {
+      labTestId: data.labTestId,
+    },
+    include: {
+      testCatalog: true,
+    },
+  });
 
   if (!labTest) {
     throw new Error("Lab test not found");
@@ -769,8 +848,12 @@ export async function createAppointmentTest(
 
   if (labTest.labId !== appointment.labId) {
     throw new Error(
-      "Lab test does not belong to the appointment lab",
+      "Lab test does not belong to appointment lab",
     );
+  }
+
+  if (labTest.status !== "ACTIVE") {
+    throw new Error("Lab test is not active");
   }
 
   const existing =
@@ -792,9 +875,22 @@ export async function createAppointmentTest(
   return prisma.appointmentTest.create({
     data: {
       appointmentId: data.appointmentId,
+
       labTestId: data.labTestId,
-      price: data.price,
-      status: data.status,
+
+      // Price automatically copied from LabTest
+      price: labTest.price,
+
+      status: data.status ?? "PENDING",
+
+      fastingRequirement:
+        labTest.testCatalog.fastingRequirement,
+
+      fastingHours:
+        labTest.testCatalog.fastingHours,
+
+      preparationInstructions:
+        labTest.testCatalog.preparationInstructions,
     },
 
     include: {
@@ -807,50 +903,30 @@ export async function createAppointmentTest(
   });
 }
 
+// =========================================================
+// GET ALL APPOINTMENT TESTS
+// =========================================================
+
 export async function getAllAppointmentTests() {
   return prisma.appointmentTest.findMany({
     orderBy: {
       createdAt: "desc",
     },
     include: {
-      appointment: {
-        select: {
-          appointmentId: true,
-          bookingId: true,
-          appointmentType: true,
-          appointmentMode: true,
-          appointmentDate: true,
-          status: true,
-          patient: {
-            select: {
-              patientId: true,
-              name: true,
-              phone: true,
-            },
-          },
-          lab: {
-            select: {
-              labId: true,
-              name: true,
-            },
-          },
-        },
-      },
+      appointment: true,
+
       labTest: {
         include: {
-          testCatalog: {
-            select: {
-              testCatalogId: true,
-              code: true,
-              name: true,
-              category: true,
-            },
-          },
+          testCatalog: true,
         },
       },
     },
   });
 }
+
+// =========================================================
+// GET APPOINTMENT TESTS
+// =========================================================
 
 export async function getAppointmentTests(
   appointmentId: string,
@@ -870,7 +946,9 @@ export async function getAppointmentTests(
     where: {
       appointmentId,
     },
-
+    orderBy: {
+      createdAt: "asc",
+    },
     include: {
       labTest: {
         include: {
@@ -878,13 +956,12 @@ export async function getAppointmentTests(
         },
       },
     },
-
-    orderBy: {
-      createdAt: "desc",
-    },
   });
 }
 
+// =========================================================
+// GET APPOINTMENT TEST BY ID
+// =========================================================
 
 export async function getAppointmentTestById(
   appointmentTestId: string,
@@ -894,7 +971,6 @@ export async function getAppointmentTestById(
       where: {
         appointmentTestId,
       },
-
       include: {
         appointment: true,
 
@@ -907,14 +983,15 @@ export async function getAppointmentTestById(
     });
 
   if (!appointmentTest) {
-    throw new Error(
-      "Appointment test not found",
-    );
+    throw new Error("Appointment test not found");
   }
 
   return appointmentTest;
 }
 
+// =========================================================
+// UPDATE APPOINTMENT TEST
+// =========================================================
 
 export async function updateAppointmentTest(
   appointmentTestId: string,
@@ -928,21 +1005,16 @@ export async function updateAppointmentTest(
     });
 
   if (!existing) {
-    throw new Error(
-      "Appointment test not found",
-    );
+    throw new Error("Appointment test not found");
   }
 
   return prisma.appointmentTest.update({
     where: {
       appointmentTestId,
     },
-
     data: {
-      price: data.price,
       status: data.status,
     },
-
     include: {
       labTest: {
         include: {
@@ -953,6 +1025,9 @@ export async function updateAppointmentTest(
   });
 }
 
+// =========================================================
+// DELETE APPOINTMENT TEST
+// =========================================================
 
 export async function deleteAppointmentTest(
   appointmentTestId: string,
@@ -965,22 +1040,25 @@ export async function deleteAppointmentTest(
     });
 
   if (!existing) {
-    throw new Error(
-      "Appointment test not found",
-    );
+    throw new Error("Appointment test not found");
   }
 
-  return prisma.appointmentTest.delete({
+  await prisma.appointmentTest.delete({
     where: {
       appointmentTestId,
     },
   });
+
+  return true;
 }
 
-
 // =========================================================
-// APPOINTMENT SERVICE
+// CREATE APPOINTMENT SERVICE
 // =========================================================
+// Normally services are automatically created by
+// createAppointment() for SCAN appointments.
+//
+// This API is only useful for adding a service later.
 
 export async function createAppointmentService(
   data: CreateAppointmentServiceInput,
@@ -998,13 +1076,13 @@ export async function createAppointmentService(
 
   if (appointment.appointmentType !== "SCAN") {
     throw new Error(
-      "Appointment service can only be added to SCAN appointment",
+      "AppointmentService can only be created for SCAN appointment",
     );
   }
 
   if (!appointment.scanCenterId) {
     throw new Error(
-      "SCAN appointment does not have scanCenterId",
+      "Appointment scanCenterId not found",
     );
   }
 
@@ -1012,6 +1090,9 @@ export async function createAppointmentService(
     await prisma.scanService.findUnique({
       where: {
         scanServiceId: data.scanServiceId,
+      },
+      include: {
+        serviceCatalog: true,
       },
     });
 
@@ -1024,18 +1105,30 @@ export async function createAppointmentService(
     appointment.scanCenterId
   ) {
     throw new Error(
-      "Scan service does not belong to the appointment scan center",
+      "Scan service does not belong to appointment scan center",
     );
   }
+
+  if (scanService.status !== "ACTIVE") {
+    throw new Error("Scan service is not active");
+  }
+
+  // -------------------------------------------------------
+  // HOME validation
+  // -------------------------------------------------------
 
   if (
     appointment.appointmentMode === "HOME" &&
     !scanService.homeServiceAvailable
   ) {
     throw new Error(
-      "This scan service is not available for home service",
+      "Home service is not available for this scan service",
     );
   }
+
+  // -------------------------------------------------------
+  // Equipment validation
+  // -------------------------------------------------------
 
   if (
     scanService.equipmentRequired &&
@@ -1063,34 +1156,38 @@ export async function createAppointmentService(
       appointment.scanCenterId
     ) {
       throw new Error(
-        "Equipment does not belong to the appointment scan center",
+        "Equipment does not belong to appointment scan center",
       );
     }
 
-    const equipmentMapping =
-      await prisma.equipmentService.findUnique({
+    if (equipment.status !== "ACTIVE") {
+      throw new Error("Equipment is not active");
+    }
+
+    const equipmentService =
+      await prisma.equipmentService.findFirst({
         where: {
-          equipmentId_scanServiceId: {
-            equipmentId: data.equipmentId,
-            scanServiceId: data.scanServiceId,
-          },
+          equipmentId: data.equipmentId,
+          scanServiceId: data.scanServiceId,
         },
       });
 
-    if (!equipmentMapping) {
+    if (!equipmentService) {
       throw new Error(
         "Equipment is not mapped to this scan service",
       );
     }
   }
 
+  // -------------------------------------------------------
+  // Prevent duplicate service
+  // -------------------------------------------------------
+
   const existing =
-    await prisma.appointmentService.findUnique({
+    await prisma.appointmentService.findFirst({
       where: {
-        appointmentId_scanServiceId: {
-          appointmentId: data.appointmentId,
-          scanServiceId: data.scanServiceId,
-        },
+        appointmentId: data.appointmentId,
+        scanServiceId: data.scanServiceId,
       },
     });
 
@@ -1103,13 +1200,40 @@ export async function createAppointmentService(
   return prisma.appointmentService.create({
     data: {
       appointmentId: data.appointmentId,
+
       scanServiceId: data.scanServiceId,
+
       equipmentId: data.equipmentId,
-      price: data.price,
-      status: data.status,
+
+      // Price automatically copied from ScanService
+      price: scanService.price,
+
+      status: data.status ?? "PENDING",
     },
 
     include: {
+      scanService: {
+        include: {
+          serviceCatalog: true,
+        },
+      },
+      equipment: true,
+    },
+  });
+}
+
+// =========================================================
+// GET ALL APPOINTMENT SERVICES
+// =========================================================
+
+export async function getAllAppointmentServices() {
+  return prisma.appointmentService.findMany({
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: {
+      appointment: true,
+
       scanService: {
         include: {
           serviceCatalog: true,
@@ -1121,60 +1245,9 @@ export async function createAppointmentService(
   });
 }
 
-
-export async function getAllAppointmentServices() {
-  return prisma.appointmentService.findMany({
-    orderBy: {
-      createdAt: "desc",
-    },
-    include: {
-      appointment: {
-        select: {
-          appointmentId: true,
-          bookingId: true,
-          appointmentType: true,
-          appointmentMode: true,
-          appointmentDate: true,
-          status: true,
-          patient: {
-            select: {
-              patientId: true,
-              name: true,
-              phone: true,
-            },
-          },
-          scanCenter: {
-            select: {
-              scanCenterId: true,
-              name: true,
-            },
-          },
-        },
-      },
-      scanService: {
-        include: {
-          serviceCatalog: {
-            select: {
-              serviceCatalogId: true,
-              code: true,
-              name: true,
-              category: true,
-            },
-          },
-        },
-      },
-      equipment: {
-        select: {
-          equipmentId: true,
-          name: true,
-          equipmentType: true,
-          manufacturer: true,
-          modelNumber: true,
-        },
-      },
-    },
-  });
-}
+// =========================================================
+// GET APPOINTMENT SERVICES
+// =========================================================
 
 export async function getAppointmentServices(
   appointmentId: string,
@@ -1194,7 +1267,9 @@ export async function getAppointmentServices(
     where: {
       appointmentId,
     },
-
+    orderBy: {
+      createdAt: "asc",
+    },
     include: {
       scanService: {
         include: {
@@ -1204,13 +1279,12 @@ export async function getAppointmentServices(
 
       equipment: true,
     },
-
-    orderBy: {
-      createdAt: "desc",
-    },
   });
 }
 
+// =========================================================
+// GET APPOINTMENT SERVICE BY ID
+// =========================================================
 
 export async function getAppointmentServiceById(
   appointmentServiceId: string,
@@ -1220,7 +1294,6 @@ export async function getAppointmentServiceById(
       where: {
         appointmentServiceId,
       },
-
       include: {
         appointment: true,
 
@@ -1243,6 +1316,9 @@ export async function getAppointmentServiceById(
   return appointmentService;
 }
 
+// =========================================================
+// UPDATE APPOINTMENT SERVICE
+// =========================================================
 
 export async function updateAppointmentService(
   appointmentServiceId: string,
@@ -1253,11 +1329,6 @@ export async function updateAppointmentService(
       where: {
         appointmentServiceId,
       },
-
-      include: {
-        appointment: true,
-        scanService: true,
-      },
     });
 
   if (!existing) {
@@ -1267,6 +1338,23 @@ export async function updateAppointmentService(
   }
 
   if (data.equipmentId) {
+    const appointment =
+      await prisma.appointment.findUnique({
+        where: {
+          appointmentId: existing.appointmentId,
+        },
+      });
+
+    if (!appointment) {
+      throw new Error("Appointment not found");
+    }
+
+    if (!appointment.scanCenterId) {
+      throw new Error(
+        "Appointment scanCenterId not found",
+      );
+    }
+
     const equipment =
       await prisma.equipment.findUnique({
         where: {
@@ -1280,25 +1368,26 @@ export async function updateAppointmentService(
 
     if (
       equipment.scanCenterId !==
-      existing.appointment.scanCenterId
+      appointment.scanCenterId
     ) {
       throw new Error(
-        "Equipment does not belong to the appointment scan center",
+        "Equipment does not belong to appointment scan center",
       );
     }
 
-    const mapping =
-      await prisma.equipmentService.findUnique({
+    if (equipment.status !== "ACTIVE") {
+      throw new Error("Equipment is not active");
+    }
+
+    const equipmentService =
+      await prisma.equipmentService.findFirst({
         where: {
-          equipmentId_scanServiceId: {
-            equipmentId: data.equipmentId,
-            scanServiceId:
-              existing.scanServiceId,
-          },
+          equipmentId: data.equipmentId,
+          scanServiceId: existing.scanServiceId,
         },
       });
 
-    if (!mapping) {
+    if (!equipmentService) {
       throw new Error(
         "Equipment is not mapped to this scan service",
       );
@@ -1309,13 +1398,10 @@ export async function updateAppointmentService(
     where: {
       appointmentServiceId,
     },
-
     data: {
       equipmentId: data.equipmentId,
-      price: data.price,
       status: data.status,
     },
-
     include: {
       scanService: {
         include: {
@@ -1328,6 +1414,9 @@ export async function updateAppointmentService(
   });
 }
 
+// =========================================================
+// DELETE APPOINTMENT SERVICE
+// =========================================================
 
 export async function deleteAppointmentService(
   appointmentServiceId: string,
@@ -1345,11 +1434,11 @@ export async function deleteAppointmentService(
     );
   }
 
-  return prisma.appointmentService.delete({
+  await prisma.appointmentService.delete({
     where: {
       appointmentServiceId,
     },
   });
+
+  return true;
 }
-
-

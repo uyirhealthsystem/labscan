@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "SampleStatus" ADD VALUE 'PENDING_COLLECTION';
