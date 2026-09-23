@@ -1,3 +1,4 @@
+
 import { Request, Response } from "express";
 
 import {
@@ -6,7 +7,10 @@ import {
   getLabById,
   getLabs,
   updateLab,
+  getLabsByUserId
 } from "../services/lab.service";
+
+import { requireUserId } from "../utils/requireuser";
 
 // =========================================================
 // CREATE LAB
@@ -17,8 +21,10 @@ export async function createLabController(
   res: Response,
 ) {
   try {
+    // Get labUserId from x-user-id header
+    const userId = requireUserId(req);
+
     const {
-      labUserId,
       name,
       registrationNumber,
       phone,
@@ -28,15 +34,15 @@ export async function createLabController(
       status,
     } = req.body;
 
-    if (!labUserId || !name) {
+    if (!name) {
       return res.status(400).json({
         status: "error",
-        message: "labUserId and name are required",
+        message: "name is required",
       });
     }
 
     const lab = await createLab({
-      labUserId,
+      labUserId: userId,
       name,
       registrationNumber,
       phone,
@@ -160,3 +166,30 @@ export async function deleteLabController(
     });
   }
 }
+
+
+// =========================================================
+// GET LABS BY USER ID
+// =========================================================
+
+export async function getLabsByUserIdController(
+  req: Request,
+  res: Response,
+) {
+  try {
+    const userId = requireUserId(req);
+
+    const labs = await getLabsByUserId(userId);
+
+    return res.status(200).json({
+      status: "success",
+      data: labs,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+}
+

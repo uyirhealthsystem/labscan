@@ -172,3 +172,33 @@ export async function deleteScanCenter(
     },
   });
 }
+
+
+// =========================================================
+// GET SCAN CENTERS BY USER ID
+// =========================================================
+
+export async function getScanCentersByUserId(userId: string) {
+  return prisma.scanCenter.findMany({
+    where: {
+      scanCenterUserId: userId,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: {
+      services: {
+        include: {
+          serviceCatalog: {
+            select: {
+              serviceCatalogId: true,
+              code: true,
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+

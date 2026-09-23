@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import {createLabController,deleteLabController,getLabByIdController,getLabsController,updateLabController} from "../controllers/lab.controller";
+import {createLabController,deleteLabController,getLabByIdController,getLabsController,updateLabController,getLabsByUserIdController} from "../controllers/lab.controller";
 
 import {
   createLabTestCatalogController,
@@ -26,11 +26,15 @@ router.post("/lab", createLabController);
 
 router.get("/labs", getLabsController);
 
+router.get("/labs/user", getLabsByUserIdController);
+
 router.get("/labs/:labId", getLabByIdController);
 
 router.patch("/labs/:labId", updateLabController);
 
 router.delete("/labs/:labId", deleteLabController);
+
+
 
 
 // this labtest catalog is strictly for superadmin it consists of codes of test details

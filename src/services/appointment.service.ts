@@ -91,15 +91,15 @@ export async function createAppointment(data: CreateAppointmentInput) {
   // Validate patient
   // -------------------------------------------------------
 
-  const patient = await prisma.patient.findUnique({
-    where: {
-      patientId: data.patientId,
-    },
-  });
+  // const patient = await prisma.patient.findUnique({
+  //   where: {
+  //     patientId: data.patientId,
+  //   },
+  // });
 
-  if (!patient) {
-    throw new Error("Patient not found");
-  }
+  // if (!patient) {
+  //   throw new Error("Patient not found");
+  // }
 
   // -------------------------------------------------------
   // Validate appointment type
@@ -486,7 +486,7 @@ export async function createAppointment(data: CreateAppointmentInput) {
       appointmentId: appointment.appointmentId,
     },
     include: {
-      patient: true,
+      //patient: true,
 
       lab: true,
 

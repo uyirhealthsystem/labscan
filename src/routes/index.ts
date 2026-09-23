@@ -8,6 +8,7 @@ import appointmentlifecycleRoutes from "../routes/appointmentlifecycle.route"
 import homeCollectionRoutes from "../routes/homecollection.route";
 import reportRoutes from "../routes/report.route"
 import sampleRoutes from "../routes/sample.route"
+
 const router = Router();
 
 

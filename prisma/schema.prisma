@@ -279,18 +279,19 @@ model Appointment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  patient    Patient     @relation(fields: [patientId], references: [patientId])
   lab        Lab?        @relation(fields: [labId], references: [labId])
   scanCenter ScanCenter? @relation(fields: [scanCenterId], references: [scanCenterId])
 
   tests    AppointmentTest[]
   services AppointmentService[]
 
-  cancellation   Cancellation?
-  reschedules    Reschedule[]
-  homeCollection HomeCollection?
-  report         Report?
-  earning        Earning?
+  cancellation     Cancellation?
+  reschedules      Reschedule[]
+  homeCollection   HomeCollection?
+  report           Report?
+  earning          Earning?
+  patient          Patient?        @relation(fields: [patientPatientId], references: [patientId])
+  patientPatientId String?
 
   @@index([patientId])
   @@index([labId])

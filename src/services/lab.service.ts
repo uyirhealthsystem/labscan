@@ -171,3 +171,32 @@ export async function deleteLab(labId: string) {
     },
   });
 }
+
+// =========================================================
+// GET LABS BY USER ID
+// =========================================================
+
+export async function getLabsByUserId(userId: string) {
+  return prisma.lab.findMany({
+    where: {
+      labUserId: userId,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: {
+      tests: {
+        include: {
+          testCatalog: {
+            select: {
+              testCatalogId: true,
+              code: true,
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+

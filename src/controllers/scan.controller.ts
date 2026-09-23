@@ -1,3 +1,4 @@
+
 import { Request, Response } from "express";
 
 import {
@@ -6,7 +7,10 @@ import {
   getScanCenterById,
   getScanCenters,
   updateScanCenter,
+  getScanCentersByUserId
 } from "../services/scan.service";
+
+import { requireUserId } from "../utils/requireuser";
 
 // =========================================================
 // CREATE SCAN CENTER
@@ -17,8 +21,10 @@ export async function createScanCenterController(
   res: Response,
 ) {
   try {
+    // Get scanCenterUserId from x-user-id header
+    const userId = requireUserId(req);
+
     const {
-      scanCenterUserId,
       name,
       registrationNumber,
       phone,
@@ -28,15 +34,15 @@ export async function createScanCenterController(
       status,
     } = req.body;
 
-    if (!scanCenterUserId || !name) {
+    if (!name) {
       return res.status(400).json({
         status: "error",
-        message: "scanUserId and name are required",
+        message: "name is required",
       });
     }
 
     const scanCenter = await createScanCenter({
-      scanCenterUserId,
+      scanCenterUserId: userId,
       name,
       registrationNumber,
       phone,
@@ -162,3 +168,31 @@ export async function deleteScanCenterController(
     });
   }
 }
+
+
+// =========================================================
+// GET SCAN CENTERS BY USER ID
+// =========================================================
+
+export async function getScanCentersByUserIdController(
+  req: Request,
+  res: Response,
+) {
+  try {
+    const userId = requireUserId(req);
+
+    const scanCenters = await getScanCentersByUserId(userId);
+
+    return res.status(200).json({
+      status: "success",
+      data: scanCenters,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+}
+
+
