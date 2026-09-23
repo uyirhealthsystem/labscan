@@ -581,21 +581,87 @@ export async function getAppointments() {
 // GET APPOINTMENTS BY LAB ID
 // =========================================================
 
+
 export async function getAppointmentsByLabId(labId: string) {
   return prisma.appointment.findMany({
     where: {
       labId,
     },
+
     orderBy: {
       appointmentDate: "desc",
     },
-    include: {
-      lab: true,
-      scanCenter: true,
+
+    select: {
+      // =========================
+      // APPOINTMENT
+      // =========================
+      appointmentId: true,
+      bookingId: true,
+      patientId: true,
+
+      appointmentType: true,
+      appointmentMode: true,
+
+      appointmentDate: true,
+      startTime: true,
+      endTime: true,
+
+      address: true,
+      status: true,
+      patientNotes: true,
+
+      createdAt: true,
+      updatedAt: true,
+
+      // =========================
+      // LAB
+      // Do NOT expose labUserId,
+      // phone, email
+      // =========================
+      lab: {
+        select: {
+          labId: true,
+          name: true,
+          registrationNumber: true,
+          address: true,
+          districtId: true,
+          status: true,
+        },
+      },
+
+      // =========================
+      // SCAN CENTER
+      // =========================
+      scanCenter: {
+        select: {
+          scanCenterId: true,
+          name: true,
+          registrationNumber: true,
+          address: true,
+          districtId: true,
+          status: true,
+        },
+      },
+
+      // =========================
+      // LAB TESTS
+      // =========================
       tests: {
-        include: {
+        select: {
+          appointmentTestId: true,
+          labTestId: true,
+          price: true,
+          status: true,
+
+          fastingRequirement: true,
+          fastingHours: true,
+          preparationInstructions: true,
+
           labTest: {
-            include: {
+            select: {
+              labTestId: true,
+
               testCatalog: {
                 select: {
                   testCatalogId: true,
@@ -607,15 +673,165 @@ export async function getAppointmentsByLabId(labId: string) {
           },
         },
       },
-      services: true,
-      homeCollection: true,
-      cancellation: true,
-      reschedules: true,
-      report: true,
-      earning: true,
+
+      // =========================
+      // SCAN SERVICES
+      // =========================
+      services: {
+        select: {
+          appointmentServiceId: true,
+          scanServiceId: true,
+          equipmentId: true,
+          price: true,
+          status: true,
+
+          scanService: {
+            select: {
+              scanServiceId: true,
+
+              serviceCatalog: {
+                select: {
+                  serviceCatalogId: true,
+                  code: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      },
+
+      // =========================
+      // HOME COLLECTION
+      // =========================
+      homeCollection: {
+        select: {
+          homeCollectionId: true,
+          address: true,
+          specialInstructions: true,
+          status: true,
+          assignedAt: true,
+          collectedAt: true,
+          completedAt: true,
+
+          // Collector assignment
+          collectorAssignment: {
+            select: {
+              collectorAssignmentId: true,
+              assignedAt: true,
+              status: true,
+
+              collector: {
+                select: {
+                  collectorId: true,
+                  name: true,
+                  role: true,
+                  qualificationStatus: true,
+                  status: true,
+                },
+              },
+            },
+          },
+
+          // Collection tracking
+          trackingEvents: {
+            select: {
+              trackingId: true,
+              status: true,
+              notes: true,
+              createdAt: true,
+            },
+            orderBy: {
+              createdAt: "desc",
+            },
+          },
+
+          // Samples
+          samples: {
+            select: {
+              sampleId: true,
+              barcode: true,
+              sampleType: true,
+              containerType: true,
+              status: true,
+              collectedAt: true,
+              receivedAt: true,
+              condition: true,
+              rejectionReason: true,
+              notes: true,
+
+              collector: {
+                select: {
+                  collectorId: true,
+                  name: true,
+                  role: true,
+                },
+              },
+            },
+          },
+        },
+      },
+
+      // =========================
+      // CANCELLATION
+      // =========================
+      cancellation: {
+        select: {
+          cancellationId: true,
+          reason: true,
+          additionalNotes: true,
+          cancelledAt: true,
+        },
+      },
+
+      // =========================
+      // RESCHEDULES
+      // =========================
+      reschedules: {
+        select: {
+          rescheduleId: true,
+          oldDate: true,
+          oldStartTime: true,
+          oldEndTime: true,
+          newDate: true,
+          newStartTime: true,
+          newEndTime: true,
+          reason: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      },
+
+      // =========================
+      // REPORT
+      // =========================
+      report: {
+        select: {
+          reportId: true,
+          status: true,
+          uploadedAt: true,
+          sentAt: true,
+        },
+      },
+
+      // =========================
+      // EARNING
+      // =========================
+      earning: {
+        select: {
+          earningId: true,
+          amount: true,
+          status: true,
+          earnedAt: true,
+        },
+      },
     },
   });
 }
+
+
 
 
 // =========================================================
