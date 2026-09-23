@@ -9,6 +9,7 @@ import {
   deleteAppointmentService,
   deleteAppointmentTest,
   getAppointmentById,
+  getAppointmentsByLabId,
   getAppointmentServiceById,
   getAppointmentServices,
   getAppointmentTestById,
@@ -112,6 +113,34 @@ export async function getAppointmentsController(
     });
   }
 }
+
+
+// =========================================================
+// GET APPOINTMENTS BY LAB ID
+// =========================================================
+
+export async function getAppointmentsByLabIdController(
+  req: Request<{ labId: string }>,
+  res: Response,
+) {
+  try {
+    const { labId } = req.params;
+
+    const appointments = await getAppointmentsByLabId(labId);
+
+    return res.status(200).json({
+      status: "success",
+      data: appointments,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+}
+
+
 
 export async function getAppointmentsByPatientController(
   req: Request<{ patientId: string }>,

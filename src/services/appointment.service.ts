@@ -576,6 +576,48 @@ export async function getAppointments() {
   });
 }
 
+
+// =========================================================
+// GET APPOINTMENTS BY LAB ID
+// =========================================================
+
+export async function getAppointmentsByLabId(labId: string) {
+  return prisma.appointment.findMany({
+    where: {
+      labId,
+    },
+    orderBy: {
+      appointmentDate: "desc",
+    },
+    include: {
+      lab: true,
+      scanCenter: true,
+      tests: {
+        include: {
+          labTest: {
+            include: {
+              testCatalog: {
+                select: {
+                  testCatalogId: true,
+                  code: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      },
+      services: true,
+      homeCollection: true,
+      cancellation: true,
+      reschedules: true,
+      report: true,
+      earning: true,
+    },
+  });
+}
+
+
 // =========================================================
 // GET APPOINTMENTS BY PATIENT
 // =========================================================
@@ -583,15 +625,15 @@ export async function getAppointments() {
 export async function getAppointmentsByPatient(
   patientId: string,
 ) {
-  const patient = await prisma.patient.findUnique({
-    where: {
-      patientId,
-    },
-  });
+  // const patient = await prisma.appointment.findUnique({
+  //   where: {
+  //     patientId,
+  //   },
+  // });
 
-  if (!patient) {
-    throw new Error("Patient not found");
-  }
+  // if (!patient) {
+  //   throw new Error("Patient not found");
+  // }
 
   return prisma.appointment.findMany({
     where: {

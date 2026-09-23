@@ -8,6 +8,7 @@ import {
   deleteAppointmentServiceController,
   deleteAppointmentTestController,
   getAppointmentByIdController,
+  getAppointmentsByLabIdController,
   getAppointmentServiceByIdController,
   getAppointmentServicesController,
   getAppointmentTestByIdController,
@@ -37,6 +38,8 @@ router.get(
   "/appointments",
   getAppointmentsController,
 );
+
+router.get( "/appointments/lab/:labId", getAppointmentsByLabIdController, );
 
 router.get(
   "/appointment/patient/:patientId",
@@ -76,6 +79,8 @@ router.get(
   "/appointmenttest/appointment/:appointmentId",
   getAppointmentTestsController,
 );
+
+
 
 router.get(
   "/appointmenttest/:appointmentTestId",
