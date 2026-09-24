@@ -833,6 +833,180 @@ export async function getAppointmentsByLabId(labId: string) {
 
 
 
+export const completeAppointment = async (appointmentId: string) => {
+  const appointment = await prisma.appointment.findUnique({
+    where: {
+      appointmentId,
+    },
+    include: {
+      tests: true,
+      services: true,
+    },
+  });
+
+  if (!appointment) {
+    throw new Error("Appointment not found");
+  }
+
+  // -------------------------------------------------------
+  // Appointment status validation
+  // -------------------------------------------------------
+
+  if (appointment.status === "COMPLETED") {
+    throw new Error("Appointment is already completed");
+  }
+
+  if (appointment.status === "CANCELLED") {
+    throw new Error("Cancelled appointment cannot be completed");
+  }
+
+  if (appointment.status === "RESCHEDULED") {
+    throw new Error("Rescheduled appointment cannot be completed");
+  }
+
+  // =======================================================
+  // LAB APPOINTMENT
+  // =======================================================
+
+  if (appointment.appointmentType === "LAB") {
+    // -----------------------------------------------------
+    // 1. All appointment tests must be completed
+    // -----------------------------------------------------
+
+    const incompleteTests = appointment.tests.filter(
+      (test) => test.status !== "COMPLETED",
+    );
+
+    if (incompleteTests.length > 0) {
+      throw new Error(
+        "All appointment tests must be completed before completing the appointment",
+      );
+    }
+
+    // -----------------------------------------------------
+    // 2. Report must exist
+    // -----------------------------------------------------
+
+    const report = await prisma.report.findUnique({
+      where: {
+        appointmentId,
+      },
+    });
+
+    if (!report) {
+      throw new Error(
+        "Report must be uploaded before completing the appointment",
+      );
+    }
+
+    // -----------------------------------------------------
+    // 3. Report must be uploaded or sent
+    // -----------------------------------------------------
+
+    if (
+      report.status !== "UPLOADED" &&
+      report.status !== "SENT"
+    ) {
+      throw new Error(
+        "Report must be uploaded before completing the appointment",
+      );
+    }
+  }
+
+  // =======================================================
+  // SCAN APPOINTMENT
+  // =======================================================
+
+  if (appointment.appointmentType === "SCAN") {
+    // -----------------------------------------------------
+    // All appointment services must be completed
+    // -----------------------------------------------------
+
+    const incompleteServices = appointment.services.filter(
+      (service) => service.status !== "COMPLETED",
+    );
+
+    if (incompleteServices.length > 0) {
+      throw new Error(
+        "All appointment services must be completed before completing the appointment",
+      );
+    }
+
+    // -----------------------------------------------------
+    // Report must exist for scan appointment
+    // -----------------------------------------------------
+
+    const report = await prisma.report.findUnique({
+      where: {
+        appointmentId,
+      },
+    });
+
+    if (!report) {
+      throw new Error(
+        "Report must be uploaded before completing the appointment",
+      );
+    }
+
+    if (
+      report.status !== "UPLOADED" &&
+      report.status !== "SENT"
+    ) {
+      throw new Error(
+        "Report must be uploaded before completing the appointment",
+      );
+    }
+  }
+
+  // =======================================================
+  // COMPLETE APPOINTMENT
+  // =======================================================
+
+  const completedAppointment =
+    await prisma.appointment.update({
+      where: {
+        appointmentId,
+      },
+      data: {
+        status: "COMPLETED",
+      },
+      include: {
+        lab: true,
+
+        scanCenter: true,
+
+        tests: {
+          include: {
+            labTest: {
+              include: {
+                testCatalog: true,
+              },
+            },
+          },
+        },
+
+        services: {
+          include: {
+            scanService: {
+              include: {
+                serviceCatalog: true,
+              },
+            },
+            equipment: true,
+          },
+        },
+
+        homeCollection: true,
+
+        report: true,
+
+        earning: true,
+      },
+    });
+
+  return completedAppointment;
+};
+
 
 // =========================================================
 // GET APPOINTMENTS BY PATIENT
@@ -896,6 +1070,8 @@ export async function getAppointmentsByPatient(
     },
   });
 }
+
+
 
 // =========================================================
 // GET APPOINTMENT BY ID

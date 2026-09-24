@@ -4,6 +4,7 @@ import { Request, Response } from "express";
 import {
   createReport,
   getReports,
+  uploadReport,
   getReportById,
   getReportByAppointment,
   updateReport,
@@ -17,6 +18,7 @@ import {
 
   createEarning,
   getEarnings,
+  getEarningsSummary,
   getEarningById,
   getEarningByAppointment,
   updateEarning,
@@ -67,6 +69,47 @@ export async function getReportsController(
     });
   }
 }
+
+export const uploadReportController = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const { appointmentId } = req.body;
+
+    if (!appointmentId) {
+      return res.status(400).json({
+        status: "error",
+        message: "appointmentId is required",
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        status: "error",
+        message: "Report file is required",
+      });
+    }
+
+    const result = await uploadReport(
+      appointmentId,
+      req.file,
+    );
+
+    return res.status(201).json({
+      status: "success",
+      message: "Report uploaded successfully",
+      data: result,
+    });
+  } catch (error: any) {
+    console.error("Upload report error:", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: error.message || "Failed to upload report",
+    });
+  }
+};
 
 export async function getReportByIdController(
   req: Request,
@@ -345,6 +388,27 @@ export async function getEarningsController(
     });
   }
 }
+
+export const getEarningsSummaryController = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const summary = await getEarningsSummary();
+
+    return res.status(200).json({
+      status: "success",
+      data: summary,
+    });
+  } catch (error: any) {
+    console.error("Get earnings summary error:", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: error.message || "Failed to get earnings summary",
+    });
+  }
+};
 
 export async function getEarningByIdController(
   req: Request,

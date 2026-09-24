@@ -29,6 +29,13 @@ model Lab {
   appointments Appointment[]
   collectors   Collector[]
 
+  // Provider-related
+  timeSlots        TimeSlot[]
+  bankAccounts     ProviderBankAccount[]
+  payouts          Payout[]
+  providerSettings ProviderSettings?
+  supportTickets   SupportTicket[]
+
   @@index([labUserId])
   @@index([districtId])
   @@index([status])
@@ -114,6 +121,13 @@ model ScanCenter {
   services     ScanService[]
   equipment    Equipment[]
   appointments Appointment[]
+
+  // Provider-related
+  timeSlots        TimeSlot[]
+  bankAccounts     ProviderBankAccount[]
+  payouts          Payout[]
+  providerSettings ProviderSettings?
+  supportTickets   SupportTicket[]
 
   @@index([scanCenterUserId])
   @@index([districtId])
@@ -285,12 +299,14 @@ model Appointment {
   tests    AppointmentTest[]
   services AppointmentService[]
 
-  cancellation     Cancellation?
-  reschedules      Reschedule[]
-  homeCollection   HomeCollection?
-  report           Report?
-  earning          Earning?
-  patient          Patient?        @relation(fields: [patientPatientId], references: [patientId])
+  cancellation Cancellation?
+  reschedules  Reschedule[]
+
+  homeCollection HomeCollection?
+  report         Report?
+  earning        Earning?
+
+  patient          Patient? @relation(fields: [patientPatientId], references: [patientId])
   patientPatientId String?
 
   @@index([patientId])
@@ -697,6 +713,167 @@ model Earning {
 }
 
 // =========================================================
+// TIME SLOT
+// =========================================================
+
+model TimeSlot {
+  timeSlotId String @id @default(uuid())
+
+  labId        String?
+  scanCenterId String?
+
+  date      DateTime
+  startTime DateTime
+  endTime   DateTime
+
+  isAvailable Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lab        Lab?        @relation(fields: [labId], references: [labId], onDelete: Cascade)
+  scanCenter ScanCenter? @relation(fields: [scanCenterId], references: [scanCenterId], onDelete: Cascade)
+
+  @@index([labId])
+  @@index([scanCenterId])
+  @@index([date])
+  @@index([isAvailable])
+  @@index([date, startTime, endTime])
+}
+
+// =========================================================
+// PROVIDER BANK ACCOUNT
+// =========================================================
+
+model ProviderBankAccount {
+  bankAccountId String @id @default(uuid())
+
+  labId        String?
+  scanCenterId String?
+
+  accountHolderName String
+  accountNumber     String
+  ifscCode          String
+  bankName          String?
+  branchName        String?
+
+  isPrimary Boolean           @default(false)
+  status    BankAccountStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lab        Lab?        @relation(fields: [labId], references: [labId], onDelete: Cascade)
+  scanCenter ScanCenter? @relation(fields: [scanCenterId], references: [scanCenterId], onDelete: Cascade)
+
+  payouts Payout[]
+
+  @@index([labId])
+  @@index([scanCenterId])
+  @@index([status])
+  @@index([isPrimary])
+}
+
+// =========================================================
+// PAYOUT
+// =========================================================
+
+model Payout {
+  payoutId String @id @default(uuid())
+
+  labId        String?
+  scanCenterId String?
+
+  bankAccountId String
+
+  amount Decimal
+
+  status PayoutStatus @default(PENDING)
+
+  transactionId String?
+  failureReason String?
+
+  requestedAt DateTime  @default(now())
+  processedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lab        Lab?        @relation(fields: [labId], references: [labId], onDelete: Cascade)
+  scanCenter ScanCenter? @relation(fields: [scanCenterId], references: [scanCenterId], onDelete: Cascade)
+
+  bankAccount ProviderBankAccount @relation(fields: [bankAccountId], references: [bankAccountId])
+
+  @@index([labId])
+  @@index([scanCenterId])
+  @@index([bankAccountId])
+  @@index([status])
+  @@index([requestedAt])
+}
+
+// =========================================================
+// PROVIDER SETTINGS
+// =========================================================
+
+model ProviderSettings {
+  settingsId String @id @default(uuid())
+
+  labId        String?
+  scanCenterId String?
+
+  notificationsEnabled Boolean @default(true)
+  bookingNotifications Boolean @default(true)
+  reportNotifications  Boolean @default(true)
+  payoutNotifications  Boolean @default(true)
+
+  emailNotifications Boolean @default(true)
+  smsNotifications   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lab        Lab?        @relation(fields: [labId], references: [labId], onDelete: Cascade)
+  scanCenter ScanCenter? @relation(fields: [scanCenterId], references: [scanCenterId], onDelete: Cascade)
+
+  @@unique([labId])
+  @@unique([scanCenterId])
+}
+
+// =========================================================
+// SUPPORT TICKET
+// =========================================================
+
+model SupportTicket {
+  ticketId String @id @default(uuid())
+
+  labId        String?
+  scanCenterId String?
+
+  subject     String
+  description String
+
+  category SupportTicketCategory @default(OTHER)
+  priority SupportTicketPriority @default(MEDIUM)
+  status   SupportTicketStatus   @default(OPEN)
+
+  resolutionNotes String?
+  resolvedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lab        Lab?        @relation(fields: [labId], references: [labId], onDelete: Cascade)
+  scanCenter ScanCenter? @relation(fields: [scanCenterId], references: [scanCenterId], onDelete: Cascade)
+
+  @@index([labId])
+  @@index([scanCenterId])
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@index([createdAt])
+}
+
+// =========================================================
 // ENUMS
 // =========================================================
 
@@ -873,4 +1050,40 @@ enum SampleTrackingStatus {
 enum SampleOtpPurpose {
   COLLECTION_VERIFICATION
   SAMPLE_HANDOVER
+}
+
+enum BankAccountStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum SupportTicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum SupportTicketCategory {
+  BOOKING
+  REPORT
+  PAYMENT
+  TECHNICAL
+  ACCOUNT
+  OTHER
 }

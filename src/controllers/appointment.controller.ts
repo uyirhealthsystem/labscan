@@ -21,6 +21,7 @@ import {
   updateAppointmentTest,
   getAllAppointmentTests,
   getAllAppointmentServices,
+  completeAppointment
 } from "../services/appointment.service";
 
 // =========================================================
@@ -113,6 +114,36 @@ export async function getAppointmentsController(
     });
   }
 }
+
+export const completeAppointmentController = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const appointmentId = req.params.appointmentId as string;
+    const appointment = await completeAppointment(appointmentId);
+
+    return res.status(200).json({
+      status: "success",
+      message: "Appointment completed successfully",
+      data: appointment,
+    });
+  } catch (error: any) {
+    console.error("Complete appointment error:", error);
+
+    if (error.message === "Appointment not found") {
+      return res.status(404).json({
+        status: "error",
+        message: error.message,
+      });
+    }
+
+    return res.status(400).json({
+      status: "error",
+      message: error.message || "Failed to complete appointment",
+    });
+  }
+};
 
 
 // =========================================================

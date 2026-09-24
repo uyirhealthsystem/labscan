@@ -19,7 +19,8 @@ import {
   updateAppointmentServiceController,
   updateAppointmentTestController,
   getAllAppointmentTestsController,
-  getAllAppointmentServicesController
+  getAllAppointmentServicesController,
+  completeAppointmentController
   
 } from "../controllers/appointment.controller";
 
@@ -37,6 +38,11 @@ router.post(
 router.get(
   "/appointments",
   getAppointmentsController,
+);
+
+router.patch(
+  "/appointment/:appointmentId/complete",
+  completeAppointmentController,
 );
 
 router.get( "/appointments/lab/:labId", getAppointmentsByLabIdController, );

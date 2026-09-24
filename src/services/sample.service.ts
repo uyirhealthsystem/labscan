@@ -587,22 +587,25 @@ export const updateSample = async (
   // COLLECTION
   // -------------------------------------------------------
 
-  if (newStatus === "COLLECTED") {
-    if (currentStatus !== "PENDING_COLLECTION") {
-      throw new Error(
-        "Sample can only be collected from PENDING_COLLECTION status",
-      );
-    }
+ if (newStatus === "COLLECTED") {
+  if (currentStatus !== "PENDING_COLLECTION") {
+    throw new Error(
+      "Sample can only be collected from PENDING_COLLECTION",
+    );
+  }
 
-    const otpVerified =
-      await isCollectionOtpVerified(sampleId);
+  // OTP is required only for HOME collection.
+  // CENTER collection is performed directly by lab staff.
+  if (existingSample.homeCollectionId) {
+    const otpVerified = await isCollectionOtpVerified(sampleId);
 
     if (!otpVerified) {
       throw new Error(
-        "OTP verification is required before collecting the sample",
+        "OTP verification is required before collecting the home sample",
       );
     }
   }
+}
 
   // -------------------------------------------------------
   // IN TRANSIT

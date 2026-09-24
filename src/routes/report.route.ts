@@ -1,8 +1,9 @@
 import { Router } from "express";
-
+import { reportUpload } from "../middlewares/upload.middleware";
 import {
   createReportController,
   getReportsController,
+  uploadReportController,
   getReportByIdController,
   getReportByAppointmentController,
   updateReportController,
@@ -16,6 +17,8 @@ import {
 
   createEarningController,
   getEarningsController,
+  getEarningsSummaryController,
+
   getEarningByIdController,
   getEarningByAppointmentController,
   updateEarningController,
@@ -32,6 +35,12 @@ const router = Router();
 router.post("/report", createReportController);
 
 router.get("/report", getReportsController);
+
+router.post(
+  "/report/upload",
+  reportUpload.single("file"),
+  uploadReportController,
+);
 
 router.get(
   "/report/appointment/:appointmentId",
@@ -96,6 +105,11 @@ router.post(
 router.get(
   "/earning",
   getEarningsController,
+);
+
+router.get(
+  "/earnings",
+  getEarningsSummaryController,
 );
 
 router.get(

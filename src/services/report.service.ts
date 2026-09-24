@@ -68,6 +68,69 @@ export async function getReports() {
   });
 }
 
+export const uploadReport = async (
+  appointmentId: string,
+  file: {
+    originalname: string;
+    filename: string;
+    mimetype: string;
+    size: number;
+  },
+) => {
+  const appointment = await prisma.appointment.findUnique({
+    where: {
+      appointmentId,
+    },
+  });
+
+  if (!appointment) {
+    throw new Error("Appointment not found");
+  }
+
+  let report = await prisma.report.findUnique({
+    where: {
+      appointmentId,
+    },
+  });
+
+  const fileUrl = `/uploads/reports/${file.filename}`;
+
+  if (!report) {
+    report = await prisma.report.create({
+      data: {
+        appointmentId,
+        status: "UPLOADED",
+        uploadedAt: new Date(),
+      },
+    });
+  } else {
+    report = await prisma.report.update({
+      where: {
+        reportId: report.reportId,
+      },
+      data: {
+        status: "UPLOADED",
+        uploadedAt: new Date(),
+      },
+    });
+  }
+
+  const reportFile = await prisma.reportFile.create({
+    data: {
+      reportId: report.reportId,
+      fileName: file.originalname,
+      fileUrl,
+      fileType: file.mimetype,
+      fileSize: file.size,
+    },
+  });
+
+  return {
+    report,
+    file: reportFile,
+  };
+};
+
 export async function getReportById(reportId: string) {
   const report = await prisma.report.findUnique({
     where: { reportId },
@@ -327,6 +390,42 @@ export async function getEarnings() {
     },
   });
 }
+
+export const getEarningsSummary = async () => {
+  const earnings = await prisma.earning.findMany({
+    select: {
+      amount: true,
+      status: true,
+    },
+  });
+
+  let totalEarnings = 0;
+  let completedEarnings = 0;
+  let pendingEarnings = 0;
+
+  for (const earning of earnings) {
+    const amount = Number(earning.amount);
+
+    totalEarnings += amount;
+
+    if (earning.status === "PENDING") {
+      pendingEarnings += amount;
+    }
+
+    if (
+      earning.status === "EARNED" ||
+      earning.status === "PAID"
+    ) {
+      completedEarnings += amount;
+    }
+  }
+
+  return {
+    totalEarnings,
+    completedEarnings,
+    pendingEarnings,
+  };
+};
 
 export async function getEarningById(
   earningId: string,
