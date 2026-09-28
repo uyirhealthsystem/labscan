@@ -7,7 +7,7 @@ import {
   getScanServiceCatalogs,
   updateScanServiceCatalog,
 } from "../services/scancatalog.service";
-
+import { requireUserId } from "../utils/requireuser";
 // =========================================================
 // CREATE SCAN SERVICE CATALOG
 // =========================================================

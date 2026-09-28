@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import {createLabController,deleteLabController,getLabByIdController,getLabsController,updateLabController,getLabsByUserIdController} from "../controllers/lab.controller";
+import {createLabController,deleteLabController,getLabsByDistrictController,getLabByIdController,getLabsController,updateLabController,getLabsByUserIdController} from "../controllers/lab.controller";
 
 import {
   createLabTestCatalogController,
@@ -25,6 +25,8 @@ const router = Router();
 router.post("/lab", createLabController);
 
 router.get("/labs", getLabsController);
+
+router.get("/labs/district/:districtId",getLabsByDistrictController);
 
 router.get("/labs/user", getLabsByUserIdController);
 

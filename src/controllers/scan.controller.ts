@@ -4,6 +4,7 @@ import { Request, Response } from "express";
 import {
   createScanCenter,
   deleteScanCenter,
+  getScanCentersByDistrict,
   getScanCenterById,
   getScanCenters,
   updateScanCenter,
@@ -89,6 +90,33 @@ export async function getScanCentersController(
 }
 
 // =========================================================
+// GET SCAN CENTERS BY DISTRICT
+// =========================================================
+
+export async function getScanCentersByDistrictController(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const districtId = req.params.districtId as string;
+
+  if (!districtId) {
+    res.status(400).json({
+      status: "error",
+      message: "districtId is required",
+    });
+    return;
+  }
+
+  const scanCenters = await getScanCentersByDistrict(districtId);
+
+  res.status(200).json({
+    status: "success",
+    districtId,
+    data: scanCenters,
+  });
+}
+
+// =========================================================
 // GET SCAN CENTER BY ID
 // =========================================================
 
@@ -148,6 +176,10 @@ export async function updateScanCenterController(
 // DELETE SCAN CENTER
 // =========================================================
 
+// =========================================================
+// DELETE SCAN CENTER - SOFT DELETE
+// =========================================================
+
 export async function deleteScanCenterController(
   req: Request<{ scanCenterId: string }>,
   res: Response,
@@ -155,11 +187,16 @@ export async function deleteScanCenterController(
   try {
     const { scanCenterId } = req.params;
 
-    await deleteScanCenter(scanCenterId);
+    const scanCenter = await deleteScanCenter(scanCenterId);
 
     return res.status(200).json({
       status: "success",
-      message: "Scan center deleted successfully",
+      message: "Scan center deactivated successfully",
+      data: {
+        scanCenterId: scanCenter.scanCenterId,
+        name: scanCenter.name,
+        status: scanCenter.status,
+      },
     });
   } catch (error: any) {
     return res.status(404).json({
@@ -168,7 +205,6 @@ export async function deleteScanCenterController(
     });
   }
 }
-
 
 // =========================================================
 // GET SCAN CENTERS BY USER ID

@@ -66,6 +66,9 @@ export async function getScanCenters() {
     orderBy: {
       createdAt: "desc",
     },
+    where: {
+  status: "ACTIVE",
+},
     include: {
       services: {
         include: {
@@ -83,6 +86,22 @@ export async function getScanCenters() {
 }
 
 // =========================================================
+// GET SCAN CENTERS BY DISTRICT
+// =========================================================
+
+export async function getScanCentersByDistrict(districtId: string) {
+  return prisma.scanCenter.findMany({
+    where: {
+      districtId,
+      status: "ACTIVE",
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+}
+
+// =========================================================
 // GET SCAN CENTER BY ID
 // =========================================================
 
@@ -92,6 +111,7 @@ export async function getScanCenterById(
   const scanCenter = await prisma.scanCenter.findUnique({
     where: {
       scanCenterId,
+      status: "ACTIVE",
     },
     include: {
       services: true,
@@ -117,6 +137,7 @@ export async function updateScanCenter(
     await prisma.scanCenter.findUnique({
       where: {
         scanCenterId,
+        status: "ACTIVE",
       },
     });
 
@@ -152,27 +173,26 @@ export async function updateScanCenter(
 // DELETE SCAN CENTER
 // =========================================================
 
-export async function deleteScanCenter(
-  scanCenterId: string,
-) {
-  const existingScanCenter =
-    await prisma.scanCenter.findUnique({
-      where: {
-        scanCenterId,
-      },
-    });
+export async function deleteScanCenter(scanCenterId: string) {
+  const existingScanCenter = await prisma.scanCenter.findUnique({
+    where: {
+      scanCenterId,
+    },
+  });
 
   if (!existingScanCenter) {
     throw new Error("Scan center not found");
   }
 
-  return prisma.scanCenter.delete({
+  return prisma.scanCenter.update({
     where: {
       scanCenterId,
     },
+    data: {
+      status: "INACTIVE",
+    },
   });
 }
-
 
 // =========================================================
 // GET SCAN CENTERS BY USER ID
@@ -182,6 +202,7 @@ export async function getScanCentersByUserId(userId: string) {
   return prisma.scanCenter.findMany({
     where: {
       scanCenterUserId: userId,
+      status: "ACTIVE",
     },
     orderBy: {
       createdAt: "desc",

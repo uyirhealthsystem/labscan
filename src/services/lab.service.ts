@@ -62,6 +62,38 @@ export async function getLabs() {
     orderBy: {
       createdAt: "desc",
     },
+    where: {
+  status: "ACTIVE",
+},
+    include: {
+      tests: {
+        include: {
+          testCatalog: {
+            select: {
+              testCatalogId: true,
+              code: true,
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+// =========================================================
+// GET LABS BY DISTRICT
+// =========================================================
+
+export async function getLabsByDistrict(districtId: string) {
+  return prisma.lab.findMany({
+    where: {
+      districtId,
+      status: "ACTIVE",
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
     include: {
       tests: {
         include: {
@@ -86,6 +118,7 @@ export async function getLabById(labId: string) {
   const lab = await prisma.lab.findUnique({
     where: {
       labId,
+      status: "ACTIVE",
     },
     include: {
   tests: {
@@ -120,6 +153,7 @@ export async function updateLab(
   const existingLab = await prisma.lab.findUnique({
     where: {
       labId,
+      status: "ACTIVE",
     },
   });
 
@@ -165,9 +199,12 @@ export async function deleteLab(labId: string) {
     throw new Error("Lab not found");
   }
 
-  return prisma.lab.delete({
+  return prisma.lab.update({
     where: {
       labId,
+    },
+    data: {
+      status: LabStatus.INACTIVE,
     },
   });
 }
@@ -180,6 +217,7 @@ export async function getLabsByUserId(userId: string) {
   return prisma.lab.findMany({
     where: {
       labUserId: userId,
+      status: "ACTIVE",
     },
     orderBy: {
       createdAt: "desc",

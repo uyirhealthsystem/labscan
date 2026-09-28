@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { createScanCenterController, deleteScanCenterController, getScanCenterByIdController, getScanCentersController, updateScanCenterController,getScanCentersByUserIdController } from "../controllers/scan.controller";
+import { createScanCenterController, deleteScanCenterController, getScanCenterByIdController, getScanCentersByDistrictController,getScanCentersController, updateScanCenterController,getScanCentersByUserIdController } from "../controllers/scan.controller";
 
 import { createScanServiceController, getScanServicesController, getScanServiceByIdController, updateScanServiceController, deleteScanServiceController } from "../controllers/scanservice.controller";
 
@@ -17,9 +17,10 @@ const router = Router();
 
 router.post("/scancenter", createScanCenterController);
 router.get("/scancenters", getScanCentersController);
+router.get("/scancenters/district/:districtId",getScanCentersByDistrictController);
 router.get("/scancenters/:scanCenterId", getScanCenterByIdController);
 router.patch("/scancenters/:scanCenterId", updateScanCenterController);
-router.delete("/scancenters/:scanCenterId", deleteScanCenterController);
+router.patch("/scancenters/:scanCenterId", deleteScanCenterController);
 router.get("/scancenters/user", getScanCentersByUserIdController);
 
 // =========================================================
@@ -64,7 +65,7 @@ router.patch(
     updateScanServiceCatalogController,
 );
 
-router.delete(
+router.patch(
     "/scanservicecatalog/:serviceCatalogId",
     deleteScanServiceCatalogController,
 );

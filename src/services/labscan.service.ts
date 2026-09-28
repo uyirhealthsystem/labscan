@@ -10,6 +10,7 @@ export async function getLabScanByUserId(userId: string) {
     prisma.lab.findMany({
       where: {
         labUserId: userId,
+        status: "ACTIVE",
       },
       orderBy: {
         createdAt: "desc",

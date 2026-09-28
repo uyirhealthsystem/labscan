@@ -6,6 +6,7 @@ import {
   deleteLab,
   getLabById,
   getLabs,
+  getLabsByDistrict,
   updateLab,
   getLabsByUserId
 } from "../services/lab.service";
@@ -88,6 +89,29 @@ export async function getLabsController(
   }
 }
 
+export async function getLabsByDistrictController(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const districtId = req.params.districtId as string;
+
+  if (!districtId) {
+    res.status(400).json({
+      status: "error",
+      message: "districtId is required",
+    });
+    return;
+  }
+
+  const labs = await getLabsByDistrict(districtId);
+
+  res.status(200).json({
+    status: "success",
+    districtId,
+    data: labs,
+  });
+}
+
 // =========================================================
 // GET LAB BY ID
 // =========================================================
@@ -146,6 +170,10 @@ export async function updateLabController(
 // DELETE LAB
 // =========================================================
 
+// =========================================================
+// DELETE LAB - SOFT DELETE
+// =========================================================
+
 export async function deleteLabController(
   req: Request<{ labId: string }>,
   res: Response,
@@ -153,11 +181,16 @@ export async function deleteLabController(
   try {
     const { labId } = req.params;
 
-    await deleteLab(labId);
+    const lab = await deleteLab(labId);
 
     return res.status(200).json({
       status: "success",
-      message: "Lab deleted successfully",
+      message: "Lab deactivated successfully",
+      data: {
+        labId: lab.labId,
+        name: lab.name,
+        status: lab.status,
+      },
     });
   } catch (error: any) {
     return res.status(404).json({

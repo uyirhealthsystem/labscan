@@ -72,6 +72,7 @@ export async function getLabTestCatalogs() {
     orderBy: {
       name: "asc",
     },
+    
   });
 }
 
