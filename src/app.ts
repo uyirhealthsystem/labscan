@@ -16,8 +16,15 @@ export function createApp(): Application {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use(pinoHttp({ logger }));
+
+  // Liveness check for PM2 / load balancers / k8s probes.
+  app.get('/health', (_req, res) => {
+    res.status(200).json({ status: 'ok' });
+  });
+
   app.use("/uploads",express.static(path.join(process.cwd(), "uploads")));
-  app.use('/api/v1', routes);
+  // Namespaced so the api-gateway can route every labscan path by one prefix.
+  app.use('/api/v1/labscan', routes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
