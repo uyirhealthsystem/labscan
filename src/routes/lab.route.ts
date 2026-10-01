@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import {createLabController,deleteLabController,getLabsByDistrictController,getLabByIdController,getLabsController,updateLabController,getLabsByUserIdController} from "../controllers/lab.controller";
+import {createLabController,deleteLabController,getLabsByDistrictController,getLabMetricsByDistrictController,getLabByIdController,getLabsController,updateLabController,getLabsByUserIdController} from "../controllers/lab.controller";
 
 import {
   createLabTestCatalogController,
@@ -35,6 +35,13 @@ router.get("/labs/:labId", getLabByIdController);
 router.patch("/labs/:labId", updateLabController);
 
 router.delete("/labs/:labId", deleteLabController);
+
+
+
+router.get(
+  "/labs/district/:districtId/metrics",
+  getLabMetricsByDistrictController,
+);
 
 
 

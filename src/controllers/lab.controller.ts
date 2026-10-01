@@ -8,7 +8,8 @@ import {
   getLabs,
   getLabsByDistrict,
   updateLab,
-  getLabsByUserId
+  getLabsByUserId,
+  getLabMetricsByDistrict
 } from "../services/lab.service";
 
 import { requireUserId } from "../utils/requireuser";
@@ -217,6 +218,30 @@ export async function getLabsByUserIdController(
     return res.status(200).json({
       status: "success",
       data: labs,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+}
+
+
+
+export async function getLabMetricsByDistrictController(
+  req: Request,
+  res: Response,
+) {
+  try {
+   const districtId = req.params.districtId as string;
+
+const data = await getLabMetricsByDistrict(districtId);
+
+    return res.status(200).json({
+      status: "success",
+      districtId,
+      data,
     });
   } catch (error: any) {
     return res.status(500).json({

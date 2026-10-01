@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { createScanCenterController, deleteScanCenterController, getScanCenterByIdController, getScanCentersByDistrictController,getScanCentersController, updateScanCenterController,getScanCentersByUserIdController } from "../controllers/scan.controller";
+import { createScanCenterController, getScanCenterMetricsByDistrictController,deleteScanCenterController, getScanCenterByIdController, getScanCentersByDistrictController,getScanCentersController, updateScanCenterController,getScanCentersByUserIdController } from "../controllers/scan.controller";
 
 import { createScanServiceController, getScanServicesController, getScanServiceByIdController, updateScanServiceController, deleteScanServiceController } from "../controllers/scanservice.controller";
 
@@ -22,6 +22,13 @@ router.get("/scancenters/:scanCenterId", getScanCenterByIdController);
 router.patch("/scancenters/:scanCenterId", updateScanCenterController);
 router.patch("/scancenters/:scanCenterId", deleteScanCenterController);
 router.get("/scancenters/user", getScanCentersByUserIdController);
+
+
+
+router.get(
+  "/scancenters/district/:districtId/metrics",
+  getScanCenterMetricsByDistrictController,
+);
 
 // =========================================================
 // SCAN SERVICE

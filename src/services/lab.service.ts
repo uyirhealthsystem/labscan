@@ -238,3 +238,32 @@ export async function getLabsByUserId(userId: string) {
   });
 }
 
+export async function getLabMetricsByDistrict(districtId: string) {
+  const [totalLabs, activeLabs, inactiveLabs] = await Promise.all([
+    prisma.lab.count({
+      where: {
+        districtId,
+      },
+    }),
+
+    prisma.lab.count({
+      where: {
+        districtId,
+        status: "ACTIVE",
+      },
+    }),
+
+    prisma.lab.count({
+      where: {
+        districtId,
+        status: "INACTIVE",
+      },
+    }),
+  ]);
+
+  return {
+    totalLabs,
+    activeLabs,
+    inactiveLabs,
+  };
+}

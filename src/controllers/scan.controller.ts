@@ -8,7 +8,8 @@ import {
   getScanCenterById,
   getScanCenters,
   updateScanCenter,
-  getScanCentersByUserId
+  getScanCentersByUserId,
+  getScanCenterMetricsByDistrict
 } from "../services/scan.service";
 
 import { requireUserId } from "../utils/requireuser";
@@ -232,3 +233,24 @@ export async function getScanCentersByUserIdController(
 }
 
 
+export async function getScanCenterMetricsByDistrictController(
+  req: Request,
+  res: Response,
+) {
+  try {
+  const districtId = req.params.districtId as string;
+
+const data = await getScanCenterMetricsByDistrict(districtId);
+
+    return res.status(200).json({
+      status: "success",
+      districtId,
+      data,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+}

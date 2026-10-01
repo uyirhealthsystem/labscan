@@ -223,3 +223,35 @@ export async function getScanCentersByUserId(userId: string) {
   });
 }
 
+export async function getScanCenterMetricsByDistrict(
+  districtId: string,
+) {
+  const [totalScanCenters, activeScanCenters, inactiveScanCenters] =
+    await Promise.all([
+      prisma.scanCenter.count({
+        where: {
+          districtId,
+        },
+      }),
+
+      prisma.scanCenter.count({
+        where: {
+          districtId,
+          status: "ACTIVE",
+        },
+      }),
+
+      prisma.scanCenter.count({
+        where: {
+          districtId,
+          status: "INACTIVE",
+        },
+      }),
+    ]);
+
+  return {
+    totalScanCenters,
+    activeScanCenters,
+    inactiveScanCenters,
+  };
+}
