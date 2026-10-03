@@ -12,7 +12,7 @@ const router = Router();
 // =========================================================
 
 router.get(
-  "/labscan/user",
+  "/user",
   getLabScanByUserIdController,
 );
 
