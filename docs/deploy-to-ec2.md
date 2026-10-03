@@ -17,7 +17,7 @@ LabScan facts used in this guide:
 
 1. Log into the [AWS Console](https://console.aws.amazon.com/) → search **EC2** → **Launch instance**.
 2. **Name**: `labscan-server` (or anything you like).
-3. **AMI (OS image)**: choose **Ubuntu Server 22.04 LTS** (64-bit x86).
+3. **AMI (OS image)**: any modern Linux works. **Amazon Linux 2023** (default user `ec2-user`) or **Ubuntu Server 22.04/24.04** (default user `ubuntu`). Avoid **Amazon Linux 2** — its glibc is too old for Node.js 22. Commands below show both package managers; examples use `ec2-user` — substitute `ubuntu` if you chose Ubuntu.
 4. **Instance type**: `t3.micro` is fine to start (free-tier eligible in most accounts).
 5. **Key pair**: click **Create new key pair**, name it `labscan-key`, type RSA, format `.pem`. Download it — you cannot re-download it later. Keep it safe; it's how you SSH in.
 6. **Network settings** → click **Edit** and add these inbound rules:
@@ -36,12 +36,12 @@ On Windows, using Git Bash / WSL / PowerShell with OpenSSH:
 
 ```bash
 chmod 400 /path/to/labscan-key.pem   # skip on plain PowerShell, not needed
-ssh -i /path/to/labscan-key.pem ubuntu@<EC2_PUBLIC_IP>
+ssh -i /path/to/labscan-key.pem ec2-user@<EC2_PUBLIC_IP>   # or ubuntu@ on Ubuntu
 ```
 
 If you're on plain Windows PowerShell, `ssh` is built in (Windows 10/11) — just run the same `ssh -i ...` command from PowerShell.
 
-You should land at an `ubuntu@ip-...:~$` prompt.
+You should land at an `[ec2-user@ip-... ~]$` (or `ubuntu@ip-...:~$`) prompt.
 
 ---
 
@@ -49,19 +49,26 @@ You should land at an `ubuntu@ip-...:~$` prompt.
 
 Run these on the **EC2 instance** (not your local machine):
 
+**Amazon Linux 2023 / RHEL-family:**
+
+```bash
+sudo dnf update -y
+curl -fsSL https://rpm.nodesource.com/setup_22.x | sudo bash -
+sudo dnf install -y nodejs git
+```
+
+**Ubuntu / Debian:**
+
 ```bash
 sudo apt update && sudo apt upgrade -y
-
-# Node.js 22.x (matches the CI setup for this project)
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs
+sudo apt install -y nodejs git
+```
 
-# Verify
-node -v
-npm -v
+Then, on either:
 
-# Git
-sudo apt install -y git
+```bash
+node -v   # should print v22.x
 
 # PM2 - keeps the app running and restarts it on crash / reboot
 sudo npm install -g pm2
@@ -76,7 +83,9 @@ You have two options — pick one:
 **Option B: PostgreSQL on the same EC2 box (simpler, fine for testing/small deployments)**:
 
 ```bash
-sudo apt install -y postgresql postgresql-contrib
+sudo apt install -y postgresql postgresql-contrib          # Ubuntu
+# Amazon Linux 2023 instead:
+# sudo dnf install -y postgresql15-server && sudo postgresql-setup --initdb && sudo systemctl enable --now postgresql
 
 sudo -u postgres psql -c "CREATE USER labscan WITH PASSWORD 'choose-a-strong-password';"
 sudo -u postgres psql -c "CREATE DATABASE labscan OWNER labscan;"
@@ -133,13 +142,13 @@ Save and exit nano with `Ctrl+O`, `Enter`, then `Ctrl+X`.
 
 ```bash
 npm ci
-npx prisma generate
-npx prisma migrate deploy
+npx prisma generate --config prisma7.config.ts
+npx prisma migrate deploy --config prisma7.config.ts
 npm run build
 ```
 
 - `npm ci` installs exact dependency versions from `package-lock.json`.
-- `prisma generate` builds the Prisma client used by the app code.
+- `prisma generate` builds the Prisma client used by the app code. The `--config prisma7.config.ts` flag is required on every Prisma command: Prisma does not auto-detect that filename, and it is where `DATABASE_URL` is wired in.
 - `prisma migrate deploy` applies database migrations from `prisma/migrations` to create/update tables.
 - `npm run build` compiles TypeScript to `dist/`.
 
@@ -172,8 +181,8 @@ curl http://localhost:8082/health
 Running the raw Node app directly on port 8082 to the internet works, but a reverse proxy is the standard, safer setup and lets you use port 80/443 with a real domain and free HTTPS.
 
 ```bash
-sudo apt install -y nginx
-sudo nano /etc/nginx/sites-available/labscan
+sudo dnf install -y nginx        # Amazon Linux  (Ubuntu: sudo apt install -y nginx)
+sudo nano /etc/nginx/conf.d/labscan.conf
 ```
 
 Paste:
@@ -199,7 +208,7 @@ server {
 Enable it:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/labscan /etc/nginx/sites-enabled/
+sudo systemctl enable nginx
 sudo nginx -t
 sudo systemctl restart nginx
 ```
@@ -207,7 +216,7 @@ sudo systemctl restart nginx
 If you have a real domain pointed at the EC2 IP (an A record), add free HTTPS:
 
 ```bash
-sudo apt install -y certbot python3-certbot-nginx
+sudo dnf install -y certbot python3-certbot-nginx   # Ubuntu: sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d your-domain.com
 ```
 
@@ -220,12 +229,12 @@ Now update your EC2 security group: allow inbound 80/443 from Anywhere, and you 
 Whenever you push new code:
 
 ```bash
-ssh -i /path/to/labscan-key.pem ubuntu@<EC2_PUBLIC_IP>
+ssh -i /path/to/labscan-key.pem ec2-user@<EC2_PUBLIC_IP>   # or ubuntu@
 cd ~/labscan
 git pull origin main
 npm ci
-npx prisma generate
-npx prisma migrate deploy
+npx prisma generate --config prisma7.config.ts
+npx prisma migrate deploy --config prisma7.config.ts
 npm run build
 pm2 restart labscan
 ```
@@ -237,8 +246,8 @@ pm2 restart labscan
 `.github/workflows/ci-cd.yml` is already set up in this repo, and the `deploy` job is fully self-bootstrapping — **no manual SSH setup on the EC2 box is required**, even for a brand-new instance. On every push:
 
 1. **`build` job** — checks out the code, installs deps, runs `prisma generate`, and type-checks/builds with `tsc`. Runs on every push and PR, so broken code never reaches the deploy step.
-2. **`deploy` job** — only runs on pushes to `main` (or a manual run via the Actions tab → "Run workflow"), and only after `build` passes. It SSHs into your EC2 instance and:
-   - installs Node.js 22, `git`, and PM2 **if they're not already there** (idempotent — skipped instantly on later runs)
+2. **`deploy` job** — only runs on pushes to `main` (or a manual run via the Actions tab → "Run workflow"), and only after `build` passes. It uploads [`scripts/deploy-remote.sh`](../scripts/deploy-remote.sh) to your EC2 instance over SSH and runs it, which:
+   - detects the distro (`dnf`/`yum` on Amazon Linux/RHEL, `apt` on Ubuntu/Debian) and installs Node.js 22, `git`, and PM2 **if they're not already there**, and registers PM2 with systemd so the app survives reboots (idempotent — skipped instantly on later runs)
    - clones the repo into `EC2_APP_DIR` **if it isn't already a git checkout** (using the workflow's own short-lived `GITHUB_TOKEN`, so no separate deploy key/PAT is needed for a private repo)
    - fetches latest `main` and `git reset --hard`s to it
    - **writes `.env` from the `APP_ENV_FILE` secret on every deploy** — this is now the single source of truth for server config; hand-editing `.env` directly on the box will just get overwritten on the next deploy
@@ -256,14 +265,14 @@ You still need a **bare** EC2 instance (step 1 of this guide — launched, secur
 1. **In the GitHub repo** → Settings → Environments → create an environment named `production` (optionally add required reviewers here if you want deploys to need manual approval).
 2. **In that `production` environment** (or repo-level Secrets, either works) → add:
    - `EC2_HOST` — the instance's public IP or domain
-   - `EC2_USER` — `ubuntu`
+   - `EC2_USER` — `ec2-user` on Amazon Linux, `ubuntu` on Ubuntu
    - `EC2_SSH_KEY` — the **private** key contents (the `.pem` file you downloaded in step 1) — paste the whole file including `-----BEGIN...-----`/`-----END...-----` lines
-   - `EC2_APP_DIR` — e.g. `/home/ubuntu/labscan`
+   - `EC2_APP_DIR` — optional, defaults to `~/labscan` (e.g. `/home/ec2-user/labscan`)
    - `EC2_SSH_PORT` — optional, defaults to 22
    - `APP_ENV_FILE` — the **entire contents** of a production `.env` file, pasted as one multi-line secret value. Copy your local `.env`, then set `NODE_ENV=production` and `PORT=8082` in the copy (keep `DATABASE_URL` pointing at your real database — Neon, RDS, etc.), and paste that whole block as the secret's value.
 3. Push to `main` (or trigger the workflow manually) and watch it run under the repo's **Actions** tab.
 
-Since `EC2_SSH_KEY` needs to already be a valid login for the instance, and `sudo` needs to work non-interactively for the auto-install steps, this assumes the default Ubuntu AMI setup where the `ubuntu` user has passwordless `sudo` — true out of the box unless you've changed it.
+Since `EC2_SSH_KEY` needs to already be a valid login for the instance, and `sudo` needs to work non-interactively for the auto-install steps, this assumes the default AMI setup where `ec2-user` (Amazon Linux) or `ubuntu` (Ubuntu) has passwordless `sudo` — true out of the box unless you've changed it.
 
 ### Why `/health`
 
@@ -310,3 +319,5 @@ If you switch to this, replace the `pm2 startOrReload ...` / `pm2 save` lines in
 - **Can't reach the app from your browser**: check the EC2 security group has the right port open, and that `pm2 status` shows the app as `online` not `errored`.
 - **`npm ci` fails**: make sure Node version on the server matches what's expected (`node -v` should be 22.x).
 - **Migrations fail**: confirm the DB user has permission to create tables, and that `DATABASE_URL` points at the right database.
+- **Uploaded reports**: files uploaded through the API are written to `uploads/` on the server's disk. Deploys never delete them (no `git clean`), but they are lost if the instance is terminated — back up that folder or move uploads to S3 for real production use.
+- **Deploy job hangs/fails at "Set up SSH key"**: the security group must allow port 22 from GitHub Actions runners (they have no fixed IP, so `0.0.0.0/0`), and `EC2_HOST` must be the *public* IP/DNS.
