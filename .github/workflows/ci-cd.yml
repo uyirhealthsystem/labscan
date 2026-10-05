@@ -12,6 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       # prisma7.config.ts requires DATABASE_URL to be set; generate/build never connect.
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
@@ -27,10 +28,22 @@ jobs:
       - run: npx prisma generate --config prisma7.config.ts
       - run: npm run build
 
+      # The compiled app (including the generated Prisma client) is shipped to EC2,
+      # so the small instance never runs tsc or a dev-dependency install.
+      - name: Package build output
+        run: tar -czf labscan-dist.tgz dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: labscan-dist
+          path: labscan-dist.tgz
+          retention-days: 7
+
   deploy:
     needs: build
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: production
     concurrency:
       group: deploy-production
@@ -41,6 +54,10 @@ jobs:
       EC2_SSH_PORT: ${{ secrets.EC2_SSH_PORT || '22' }}
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: labscan-dist
 
       - name: Set up SSH key
         env:
@@ -57,8 +74,13 @@ jobs:
           APP_ENV_FILE: ${{ secrets.APP_ENV_FILE }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          SSH="ssh -i $HOME/.ssh/ec2.pem -p $EC2_SSH_PORT -o ServerAliveInterval=30 $EC2_USER@$EC2_HOST"
+          # ConnectTimeout + ServerAliveCountMax make an unresponsive server fail the job
+          # within a few minutes instead of hanging until timeout-minutes.
+          SSH="ssh -i $HOME/.ssh/ec2.pem -p $EC2_SSH_PORT -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=4 $EC2_USER@$EC2_HOST"
           REMOTE_SCRIPT='$HOME/.labscan-deploy.sh'
+          REMOTE_DIST='$HOME/.labscan-dist.tgz'
+
+          $SSH "umask 077 && cat > $REMOTE_DIST" < labscan-dist.tgz
 
           # Upload the script with its env baked in (keeps secrets out of argv on the server),
           # then run it with stdin detached so nothing in it can swallow input.
@@ -66,10 +88,11 @@ jobs:
             printf 'export APP_DIR=%q REPO=%q BRANCH=%q GH_TOKEN=%q APP_ENV_B64=%q\n' \
               "$EC2_APP_DIR" "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "$GH_TOKEN" \
               "$(printf '%s\n' "$APP_ENV_FILE" | base64 -w0)"
+            printf 'export DIST_TARBALL="%s"\n' "$REMOTE_DIST"
             cat scripts/deploy-remote.sh
           } | $SSH "umask 077 && cat > $REMOTE_SCRIPT"
 
-          $SSH "bash $REMOTE_SCRIPT < /dev/null; rc=\$?; rm -f $REMOTE_SCRIPT; exit \$rc"
+          $SSH "bash $REMOTE_SCRIPT < /dev/null; rc=\$?; rm -f $REMOTE_SCRIPT $REMOTE_DIST; exit \$rc"
 
       - name: Remove SSH key
         if: always()
