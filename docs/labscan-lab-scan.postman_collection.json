@@ -1,0 +1,1822 @@
+{
+  "info": {
+    "name": "Labscan – Lab, Scan & Appointments",
+    "description": "Lab, scan center and appointment endpoints of the labscan service.\n\nSet `baseUrl` and `userId` in the collection variables. Every request sends `x-user-id: {{userId}}` (required by create-lab, create-scan-center and the `/user` endpoints; ignored elsewhere).\n\nCreate requests store the new id in a collection variable (labId, testCatalogId, labTestId, scanCenterId, serviceCatalogId, scanServiceId), so run each folder top to bottom.\n\nEnums: status = ACTIVE | INACTIVE; fastingRequirement = NOT_REQUIRED | REQUIRED | OPTIONAL. turnaroundTime is an integer.\n\nAll routes live under /api/v1/labscan (already in baseUrl). Calling /api/v1/appointments/... without the labscan prefix returns 404.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://15.252.166.93/api/v1/labscan"
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "districtId",
+      "value": ""
+    },
+    {
+      "key": "labId",
+      "value": ""
+    },
+    {
+      "key": "testCatalogId",
+      "value": ""
+    },
+    {
+      "key": "labTestId",
+      "value": ""
+    },
+    {
+      "key": "scanCenterId",
+      "value": ""
+    },
+    {
+      "key": "serviceCatalogId",
+      "value": ""
+    },
+    {
+      "key": "scanServiceId",
+      "value": ""
+    },
+    {
+      "key": "patientId",
+      "value": ""
+    },
+    {
+      "key": "appointmentId",
+      "value": ""
+    },
+    {
+      "key": "appointmentTestId",
+      "value": ""
+    },
+    {
+      "key": "appointmentServiceId",
+      "value": ""
+    },
+    {
+      "key": "equipmentId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Lab + Scan (combined)",
+      "item": [
+        {
+          "name": "Get lab & scan data for user",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{userId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/user",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "user"
+              ]
+            },
+            "description": "Labs and scan centers owned by the user in x-user-id."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Lab",
+      "item": [
+        {
+          "name": "Labs",
+          "item": [
+            {
+              "name": "Create lab",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/lab",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "lab"
+                  ]
+                },
+                "description": "Requires x-user-id (stored as labUserId). Only `name` is required.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Uyir Diagnostics Lab\",\n  \"registrationNumber\": \"REG-LAB-001\",\n  \"phone\": \"9876543210\",\n  \"email\": \"lab@example.com\",\n  \"address\": \"12, Main Road, Chennai\",\n  \"districtId\": \"{{districtId}}\",\n  \"status\": \"ACTIVE\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const body = pm.response.json();",
+                      "if (pm.response.code === 201 && body.data && body.data.labId) {",
+                      "  pm.collectionVariables.set(\"labId\", body.data.labId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get all labs",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/labs",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "labs"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get labs by user",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/labs/user",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "labs",
+                    "user"
+                  ]
+                },
+                "description": "Labs owned by the user in x-user-id."
+              }
+            },
+            {
+              "name": "Get labs by district",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/labs/district/{{districtId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "labs",
+                    "district",
+                    "{{districtId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get lab metrics by district",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/labs/district/{{districtId}}/metrics",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "labs",
+                    "district",
+                    "{{districtId}}",
+                    "metrics"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get lab by id",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/labs/{{labId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "labs",
+                    "{{labId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update lab",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/labs/{{labId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "labs",
+                    "{{labId}}"
+                  ]
+                },
+                "description": "Any subset of the lab fields.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"9876500000\",\n  \"address\": \"45, New Street, Chennai\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete lab (soft)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/labs/{{labId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "labs",
+                    "{{labId}}"
+                  ]
+                },
+                "description": "Soft delete: sets status to INACTIVE."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lab Test Catalog (superadmin)",
+          "item": [
+            {
+              "name": "Create lab test catalog",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/labtestcatalog",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "labtestcatalog"
+                  ]
+                },
+                "description": "`code` (unique) and `name` are required.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"CBC\",\n  \"name\": \"Complete Blood Count\",\n  \"description\": \"Measures blood cell counts\",\n  \"category\": \"Hematology\",\n  \"status\": \"ACTIVE\",\n  \"fastingRequirement\": \"NOT_REQUIRED\",\n  \"fastingHours\": null,\n  \"preparationInstructions\": \"No special preparation needed\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const body = pm.response.json();",
+                      "if (pm.response.code === 201 && body.data && body.data.testCatalogId) {",
+                      "  pm.collectionVariables.set(\"testCatalogId\", body.data.testCatalogId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get all lab test catalogs",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/labtestcatalogs",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "labtestcatalogs"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get lab test catalog by id",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/labtestcatalogs/{{testCatalogId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "labtestcatalogs",
+                    "{{testCatalogId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update lab test catalog",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/labtestcatalogs/{{testCatalogId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "labtestcatalogs",
+                    "{{testCatalogId}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fastingRequirement\": \"REQUIRED\",\n  \"fastingHours\": 8\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete lab test catalog",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/labtestcatalog/{{testCatalogId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "labtestcatalog",
+                    "{{testCatalogId}}"
+                  ]
+                },
+                "description": "Note the singular `labtestcatalog` in this path."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lab Tests",
+          "item": [
+            {
+              "name": "Create lab test",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/lab/test",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "lab",
+                    "test"
+                  ]
+                },
+                "description": "Adds a catalog test to a lab. `labId` and `testCatalogId` are required; the pair must be unique.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"labId\": \"{{labId}}\",\n  \"testCatalogId\": \"{{testCatalogId}}\",\n  \"price\": 450,\n  \"turnaroundTime\": 24,\n  \"status\": \"ACTIVE\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const body = pm.response.json();",
+                      "if (pm.response.code === 201 && body.data && body.data.labTestId) {",
+                      "  pm.collectionVariables.set(\"labTestId\", body.data.labTestId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get lab tests",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/labs/{{labId}}/tests",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "labs",
+                    "{{labId}}",
+                    "tests"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get lab test by id",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/labs/{{labId}}/tests/{{labTestId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "labs",
+                    "{{labId}}",
+                    "tests",
+                    "{{labTestId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update lab test",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/labs/{{labId}}/tests/{{labTestId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "labs",
+                    "{{labId}}",
+                    "tests",
+                    "{{labTestId}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"price\": 500,\n  \"turnaroundTime\": 12,\n  \"status\": \"ACTIVE\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete lab test",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/labs/{{labId}}/tests/{{labTestId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "labs",
+                    "{{labId}}",
+                    "tests",
+                    "{{labTestId}}"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Scan",
+      "item": [
+        {
+          "name": "Scan Centers",
+          "item": [
+            {
+              "name": "Create scan center",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scancenter",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scancenter"
+                  ]
+                },
+                "description": "Requires x-user-id (stored as scanCenterUserId). Only `name` is required.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Uyir Imaging Center\",\n  \"registrationNumber\": \"REG-SCAN-001\",\n  \"phone\": \"9876543211\",\n  \"email\": \"scan@example.com\",\n  \"address\": \"8, Hospital Road, Chennai\",\n  \"districtId\": \"{{districtId}}\",\n  \"status\": \"ACTIVE\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const body = pm.response.json();",
+                      "if (pm.response.code === 201 && body.data && body.data.scanCenterId) {",
+                      "  pm.collectionVariables.set(\"scanCenterId\", body.data.scanCenterId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get all scan centers",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scancenters",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scancenters"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get scan centers by user",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scancenters/user",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scancenters",
+                    "user"
+                  ]
+                },
+                "description": "⚠ Currently unreachable on the server: an earlier route with the same method/path pattern handles this request first. `GET /scancenters/:scanCenterId` matches `user` as an id."
+              }
+            },
+            {
+              "name": "Get scan centers by district",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scancenters/district/{{districtId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scancenters",
+                    "district",
+                    "{{districtId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get scan center metrics by district",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scancenters/district/{{districtId}}/metrics",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scancenters",
+                    "district",
+                    "{{districtId}}",
+                    "metrics"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get scan center by id",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scancenters/{{scanCenterId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scancenters",
+                    "{{scanCenterId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update scan center",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scancenters/{{scanCenterId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scancenters",
+                    "{{scanCenterId}}"
+                  ]
+                },
+                "description": "Any subset of the scan center fields.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"9876500001\",\n  \"address\": \"20, Lake View Road, Chennai\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete scan center (soft)",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scancenters/{{scanCenterId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scancenters",
+                    "{{scanCenterId}}"
+                  ]
+                },
+                "description": "⚠ Currently unreachable on the server: an earlier route with the same method/path pattern handles this request first. The delete route is registered as PATCH on the same path as update, so this request runs update instead. Send `{\"status\": \"INACTIVE\"}` via update to deactivate."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Scan Service Catalog",
+          "item": [
+            {
+              "name": "Create scan service catalog",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scanservicecatalog",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scanservicecatalog"
+                  ]
+                },
+                "description": "`code` (unique) and `name` are required.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"MRI-BRAIN\",\n  \"name\": \"MRI Brain\",\n  \"description\": \"MRI scan of the brain\",\n  \"category\": \"MRI\",\n  \"status\": \"ACTIVE\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const body = pm.response.json();",
+                      "if (pm.response.code === 201 && body.data && body.data.serviceCatalogId) {",
+                      "  pm.collectionVariables.set(\"serviceCatalogId\", body.data.serviceCatalogId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get all scan service catalogs",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scanservicecatalogs",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scanservicecatalogs"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get scan service catalog by id",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scanservicecatalog/{{serviceCatalogId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scanservicecatalog",
+                    "{{serviceCatalogId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update scan service catalog",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scanservicecatalog/{{serviceCatalogId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scanservicecatalog",
+                    "{{serviceCatalogId}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"MRI scan of the brain with contrast\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete scan service catalog",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scanservicecatalog/{{serviceCatalogId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scanservicecatalog",
+                    "{{serviceCatalogId}}"
+                  ]
+                },
+                "description": "⚠ Currently unreachable on the server: an earlier route with the same method/path pattern handles this request first. The delete route is registered as PATCH on the same path as update, so this request runs update instead."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Scan Services",
+          "item": [
+            {
+              "name": "Create scan service",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scanservice",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scanservice"
+                  ]
+                },
+                "description": "Adds a catalog service to a scan center. `scanCenterId` and `serviceCatalogId` are required; the pair must be unique.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"scanCenterId\": \"{{scanCenterId}}\",\n  \"serviceCatalogId\": \"{{serviceCatalogId}}\",\n  \"price\": 3500,\n  \"turnaroundTime\": 48,\n  \"status\": \"ACTIVE\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const body = pm.response.json();",
+                      "if (pm.response.code === 201 && body.data && body.data.scanServiceId) {",
+                      "  pm.collectionVariables.set(\"scanServiceId\", body.data.scanServiceId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get scan services",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scanservices/{{scanCenterId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scanservices",
+                    "{{scanCenterId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get scan service by id",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scanservices/{{scanCenterId}}/{{scanServiceId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scanservices",
+                    "{{scanCenterId}}",
+                    "{{scanServiceId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update scan service",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scanservices/{{scanCenterId}}/{{scanServiceId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scanservices",
+                    "{{scanCenterId}}",
+                    "{{scanServiceId}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"price\": 3200,\n  \"turnaroundTime\": 24,\n  \"status\": \"ACTIVE\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete scan service",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scanservices/{{scanCenterId}}/{{scanServiceId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scanservices",
+                    "{{scanCenterId}}",
+                    "{{scanServiceId}}"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Appointments",
+      "description": "Appointment endpoints. Create a lab (or scan) appointment first; it stores appointmentId.\n\nappointmentType = LAB | SCAN; appointmentMode = CENTER | HOME. LAB needs labId + tests (no scanCenterId/services); SCAN needs scanCenterId + services (no labId/tests).\nAppointment status = CONFIRMED | IN_PROGRESS | COMPLETED | CANCELLED | RESCHEDULED. bookingId must be unique. Prices are copied from the lab test / scan service, never sent by the client.",
+      "item": [
+        {
+          "name": "Appointment",
+          "item": [
+            {
+              "name": "Create lab appointment",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointment",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointment"
+                  ]
+                },
+                "description": "LAB appointment: labId and at least one test required.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"bookingId\": \"BOOK-LAB-0001\",\n  \"patientId\": \"{{patientId}}\",\n  \"labId\": \"{{labId}}\",\n  \"appointmentType\": \"LAB\",\n  \"appointmentMode\": \"CENTER\",\n  \"appointmentDate\": \"2026-10-10T00:00:00.000Z\",\n  \"startTime\": \"2026-10-10T09:00:00.000Z\",\n  \"endTime\": \"2026-10-10T09:30:00.000Z\",\n  \"patientNotes\": \"Fasting since last night\",\n  \"tests\": [\n    {\n      \"labTestId\": \"{{labTestId}}\"\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const body = pm.response.json();",
+                      "if (pm.response.code === 201 && body.data && body.data.appointmentId) {",
+                      "  pm.collectionVariables.set(\"appointmentId\", body.data.appointmentId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create scan appointment",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointment",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointment"
+                  ]
+                },
+                "description": "SCAN appointment: scanCenterId and at least one service required. equipmentId is optional.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"bookingId\": \"BOOK-SCAN-0001\",\n  \"patientId\": \"{{patientId}}\",\n  \"scanCenterId\": \"{{scanCenterId}}\",\n  \"appointmentType\": \"SCAN\",\n  \"appointmentMode\": \"CENTER\",\n  \"appointmentDate\": \"2026-10-11T00:00:00.000Z\",\n  \"startTime\": \"2026-10-11T10:00:00.000Z\",\n  \"endTime\": \"2026-10-11T10:45:00.000Z\",\n  \"services\": [\n    {\n      \"scanServiceId\": \"{{scanServiceId}}\"\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const body = pm.response.json();",
+                      "if (pm.response.code === 201 && body.data && body.data.appointmentId) {",
+                      "  pm.collectionVariables.set(\"appointmentId\", body.data.appointmentId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List appointments",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointments",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointments"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "List appointments by lab",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointments/lab/{{labId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointments",
+                    "lab",
+                    "{{labId}}"
+                  ]
+                },
+                "description": "All appointments for a lab (used by the lab home screen)."
+              }
+            },
+            {
+              "name": "List appointments by patient",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointment/patient/{{patientId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointment",
+                    "patient",
+                    "{{patientId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get appointment",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointment/{{appointmentId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointment",
+                    "{{appointmentId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update appointment",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointment/{{appointmentId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointment",
+                    "{{appointmentId}}"
+                  ]
+                },
+                "description": "All fields optional: appointmentDate, startTime, endTime, address, status, patientNotes.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"IN_PROGRESS\",\n  \"patientNotes\": \"Patient arrived\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Complete appointment",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointment/{{appointmentId}}/complete",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointment",
+                    "{{appointmentId}}",
+                    "complete"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete appointment",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointment/{{appointmentId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointment",
+                    "{{appointmentId}}"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Appointment Tests",
+          "description": "status = PENDING | SAMPLE_COLLECTED | PROCESSING | COMPLETED",
+          "item": [
+            {
+              "name": "Add test to appointment",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointmenttest",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointmenttest"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"appointmentId\": \"{{appointmentId}}\",\n  \"labTestId\": \"{{labTestId}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const body = pm.response.json();",
+                      "if (pm.response.code === 201 && body.data && body.data.appointmentTestId) {",
+                      "  pm.collectionVariables.set(\"appointmentTestId\", body.data.appointmentTestId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List all appointment tests",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/labappointments",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "labappointments"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "List tests for appointment",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointmenttest/appointment/{{appointmentId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointmenttest",
+                    "appointment",
+                    "{{appointmentId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get appointment test",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointmenttest/{{appointmentTestId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointmenttest",
+                    "{{appointmentTestId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update appointment test",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointmenttest/{{appointmentTestId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointmenttest",
+                    "{{appointmentTestId}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"SAMPLE_COLLECTED\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete appointment test",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointmenttest/{{appointmentTestId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointmenttest",
+                    "{{appointmentTestId}}"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Appointment Services",
+          "description": "status = PENDING | IN_PROGRESS | COMPLETED | CANCELLED",
+          "item": [
+            {
+              "name": "Add service to appointment",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointmentservice",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointmentservice"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"appointmentId\": \"{{appointmentId}}\",\n  \"scanServiceId\": \"{{scanServiceId}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const body = pm.response.json();",
+                      "if (pm.response.code === 201 && body.data && body.data.appointmentServiceId) {",
+                      "  pm.collectionVariables.set(\"appointmentServiceId\", body.data.appointmentServiceId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List all appointment services",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/scanappointments",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "scanappointments"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "List services for appointment",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointmentservice/appointment/{{appointmentId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointmentservice",
+                    "appointment",
+                    "{{appointmentId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get appointment service",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointmentservice/{{appointmentServiceId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointmentservice",
+                    "{{appointmentServiceId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update appointment service",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointmentservice/{{appointmentServiceId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointmentservice",
+                    "{{appointmentServiceId}}"
+                  ]
+                },
+                "description": "Optional: equipmentId, status.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"IN_PROGRESS\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete appointment service",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "x-user-id",
+                    "value": "{{userId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/appointmentservice/{{appointmentServiceId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "appointmentservice",
+                    "{{appointmentServiceId}}"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
