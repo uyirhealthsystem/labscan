@@ -1,13 +1,13 @@
 {
   "info": {
     "name": "Labscan – Lab, Scan & Appointments",
-    "description": "Lab, scan center and appointment endpoints of the labscan service.\n\nSet `baseUrl` and `userId` in the collection variables. Every request sends `x-user-id: {{userId}}` (required by create-lab, create-scan-center and the `/user` endpoints; ignored elsewhere).\n\nCreate requests store the new id in a collection variable (labId, testCatalogId, labTestId, scanCenterId, serviceCatalogId, scanServiceId), so run each folder top to bottom.\n\nEnums: status = ACTIVE | INACTIVE; fastingRequirement = NOT_REQUIRED | REQUIRED | OPTIONAL. turnaroundTime is an integer.\n\nAll routes live under /api/v1/labscan (already in baseUrl). Calling /api/v1/appointments/... without the labscan prefix returns 404.",
+    "description": "Lab, scan center and appointment endpoints of the labscan service.\n\nSet `baseUrl` (host only, e.g. http://15.252.166.93) and `userId` in the collection variables. Every request sends `x-user-id: {{userId}}` (required by create-lab, create-scan-center and the `/user` endpoints; ignored elsewhere).\n\nCreate requests store the new id in a collection variable (labId, testCatalogId, labTestId, scanCenterId, serviceCatalogId, scanServiceId), so run each folder top to bottom.\n\nEnums: status = ACTIVE | INACTIVE; fastingRequirement = NOT_REQUIRED | REQUIRED | OPTIONAL. turnaroundTime is an integer.\n\nAll routes live under /api/v1/labscan, written out in each request URL. Calling /api/v1/appointments/... without the labscan prefix returns 404.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://15.252.166.93/api/v1/labscan"
+      "value": "http://15.252.166.93"
     },
     {
       "key": "userId",
@@ -77,11 +77,14 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/user",
+              "raw": "{{baseUrl}}/api/v1/labscan/user",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
+                "labscan",
                 "user"
               ]
             },
@@ -111,11 +114,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/lab",
+                  "raw": "{{baseUrl}}/api/v1/labscan/lab",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "lab"
                   ]
                 },
@@ -156,11 +162,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/labs",
+                  "raw": "{{baseUrl}}/api/v1/labscan/labs",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "labs"
                   ]
                 }
@@ -177,11 +186,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/labs/user",
+                  "raw": "{{baseUrl}}/api/v1/labscan/labs/user",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "labs",
                     "user"
                   ]
@@ -200,11 +212,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/labs/district/{{districtId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/labs/district/{{districtId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "labs",
                     "district",
                     "{{districtId}}"
@@ -223,11 +238,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/labs/district/{{districtId}}/metrics",
+                  "raw": "{{baseUrl}}/api/v1/labscan/labs/district/{{districtId}}/metrics",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "labs",
                     "district",
                     "{{districtId}}",
@@ -247,11 +265,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/labs/{{labId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/labs/{{labId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "labs",
                     "{{labId}}"
                   ]
@@ -273,11 +294,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/labs/{{labId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/labs/{{labId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "labs",
                     "{{labId}}"
                   ]
@@ -305,11 +329,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/labs/{{labId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/labs/{{labId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "labs",
                     "{{labId}}"
                   ]
@@ -337,11 +364,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/labtestcatalog",
+                  "raw": "{{baseUrl}}/api/v1/labscan/labtestcatalog",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "labtestcatalog"
                   ]
                 },
@@ -382,11 +412,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/labtestcatalogs",
+                  "raw": "{{baseUrl}}/api/v1/labscan/labtestcatalogs",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "labtestcatalogs"
                   ]
                 }
@@ -403,11 +436,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/labtestcatalogs/{{testCatalogId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/labtestcatalogs/{{testCatalogId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "labtestcatalogs",
                     "{{testCatalogId}}"
                   ]
@@ -429,11 +465,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/labtestcatalogs/{{testCatalogId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/labtestcatalogs/{{testCatalogId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "labtestcatalogs",
                     "{{testCatalogId}}"
                   ]
@@ -460,11 +499,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/labtestcatalog/{{testCatalogId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/labtestcatalog/{{testCatalogId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "labtestcatalog",
                     "{{testCatalogId}}"
                   ]
@@ -492,11 +534,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/lab/test",
+                  "raw": "{{baseUrl}}/api/v1/labscan/lab/test",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "lab",
                     "test"
                   ]
@@ -538,11 +583,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/labs/{{labId}}/tests",
+                  "raw": "{{baseUrl}}/api/v1/labscan/labs/{{labId}}/tests",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "labs",
                     "{{labId}}",
                     "tests"
@@ -561,11 +609,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/labs/{{labId}}/tests/{{labTestId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/labs/{{labId}}/tests/{{labTestId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "labs",
                     "{{labId}}",
                     "tests",
@@ -589,11 +640,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/labs/{{labId}}/tests/{{labTestId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/labs/{{labId}}/tests/{{labTestId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "labs",
                     "{{labId}}",
                     "tests",
@@ -622,11 +676,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/labs/{{labId}}/tests/{{labTestId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/labs/{{labId}}/tests/{{labTestId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "labs",
                     "{{labId}}",
                     "tests",
@@ -660,11 +717,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scancenter",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scancenter",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scancenter"
                   ]
                 },
@@ -705,11 +765,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scancenters",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scancenters",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scancenters"
                   ]
                 }
@@ -726,11 +789,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scancenters/user",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scancenters/user",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scancenters",
                     "user"
                   ]
@@ -749,11 +815,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scancenters/district/{{districtId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scancenters/district/{{districtId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scancenters",
                     "district",
                     "{{districtId}}"
@@ -772,11 +841,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scancenters/district/{{districtId}}/metrics",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scancenters/district/{{districtId}}/metrics",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scancenters",
                     "district",
                     "{{districtId}}",
@@ -796,11 +868,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scancenters/{{scanCenterId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scancenters/{{scanCenterId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scancenters",
                     "{{scanCenterId}}"
                   ]
@@ -822,11 +897,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scancenters/{{scanCenterId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scancenters/{{scanCenterId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scancenters",
                     "{{scanCenterId}}"
                   ]
@@ -854,11 +932,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scancenters/{{scanCenterId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scancenters/{{scanCenterId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scancenters",
                     "{{scanCenterId}}"
                   ]
@@ -886,11 +967,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scanservicecatalog",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scanservicecatalog",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scanservicecatalog"
                   ]
                 },
@@ -931,11 +1015,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scanservicecatalogs",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scanservicecatalogs",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scanservicecatalogs"
                   ]
                 }
@@ -952,11 +1039,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scanservicecatalog/{{serviceCatalogId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scanservicecatalog/{{serviceCatalogId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scanservicecatalog",
                     "{{serviceCatalogId}}"
                   ]
@@ -978,11 +1068,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scanservicecatalog/{{serviceCatalogId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scanservicecatalog/{{serviceCatalogId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scanservicecatalog",
                     "{{serviceCatalogId}}"
                   ]
@@ -1009,11 +1102,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scanservicecatalog/{{serviceCatalogId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scanservicecatalog/{{serviceCatalogId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scanservicecatalog",
                     "{{serviceCatalogId}}"
                   ]
@@ -1041,11 +1137,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scanservice",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scanservice",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scanservice"
                   ]
                 },
@@ -1086,11 +1185,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scanservices/{{scanCenterId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scanservices/{{scanCenterId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scanservices",
                     "{{scanCenterId}}"
                   ]
@@ -1108,11 +1210,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scanservices/{{scanCenterId}}/{{scanServiceId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scanservices/{{scanCenterId}}/{{scanServiceId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scanservices",
                     "{{scanCenterId}}",
                     "{{scanServiceId}}"
@@ -1135,11 +1240,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scanservices/{{scanCenterId}}/{{scanServiceId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scanservices/{{scanCenterId}}/{{scanServiceId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scanservices",
                     "{{scanCenterId}}",
                     "{{scanServiceId}}"
@@ -1167,11 +1275,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scanservices/{{scanCenterId}}/{{scanServiceId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scanservices/{{scanCenterId}}/{{scanServiceId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scanservices",
                     "{{scanCenterId}}",
                     "{{scanServiceId}}"
@@ -1205,11 +1316,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointment",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointment",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointment"
                   ]
                 },
@@ -1254,11 +1368,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointment",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointment",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointment"
                   ]
                 },
@@ -1299,11 +1416,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointments",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointments",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointments"
                   ]
                 }
@@ -1320,11 +1440,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointments/lab/{{labId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointments/lab/{{labId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointments",
                     "lab",
                     "{{labId}}"
@@ -1344,11 +1467,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointment/patient/{{patientId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointment/patient/{{patientId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointment",
                     "patient",
                     "{{patientId}}"
@@ -1367,11 +1493,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointment/{{appointmentId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointment/{{appointmentId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointment",
                     "{{appointmentId}}"
                   ]
@@ -1393,11 +1522,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointment/{{appointmentId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointment/{{appointmentId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointment",
                     "{{appointmentId}}"
                   ]
@@ -1425,11 +1557,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointment/{{appointmentId}}/complete",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointment/{{appointmentId}}/complete",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointment",
                     "{{appointmentId}}",
                     "complete"
@@ -1448,11 +1583,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointment/{{appointmentId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointment/{{appointmentId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointment",
                     "{{appointmentId}}"
                   ]
@@ -1480,11 +1618,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointmenttest",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointmenttest",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointmenttest"
                   ]
                 },
@@ -1524,11 +1665,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/labappointments",
+                  "raw": "{{baseUrl}}/api/v1/labscan/labappointments",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "labappointments"
                   ]
                 }
@@ -1545,11 +1689,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointmenttest/appointment/{{appointmentId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointmenttest/appointment/{{appointmentId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointmenttest",
                     "appointment",
                     "{{appointmentId}}"
@@ -1568,11 +1715,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointmenttest/{{appointmentTestId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointmenttest/{{appointmentTestId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointmenttest",
                     "{{appointmentTestId}}"
                   ]
@@ -1594,11 +1744,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointmenttest/{{appointmentTestId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointmenttest/{{appointmentTestId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointmenttest",
                     "{{appointmentTestId}}"
                   ]
@@ -1625,11 +1778,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointmenttest/{{appointmentTestId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointmenttest/{{appointmentTestId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointmenttest",
                     "{{appointmentTestId}}"
                   ]
@@ -1657,11 +1813,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointmentservice",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointmentservice",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointmentservice"
                   ]
                 },
@@ -1701,11 +1860,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/scanappointments",
+                  "raw": "{{baseUrl}}/api/v1/labscan/scanappointments",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "scanappointments"
                   ]
                 }
@@ -1722,11 +1884,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointmentservice/appointment/{{appointmentId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointmentservice/appointment/{{appointmentId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointmentservice",
                     "appointment",
                     "{{appointmentId}}"
@@ -1745,11 +1910,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointmentservice/{{appointmentServiceId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointmentservice/{{appointmentServiceId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointmentservice",
                     "{{appointmentServiceId}}"
                   ]
@@ -1771,11 +1939,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointmentservice/{{appointmentServiceId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointmentservice/{{appointmentServiceId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointmentservice",
                     "{{appointmentServiceId}}"
                   ]
@@ -1803,11 +1974,14 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/appointmentservice/{{appointmentServiceId}}",
+                  "raw": "{{baseUrl}}/api/v1/labscan/appointmentservice/{{appointmentServiceId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
+                    "labscan",
                     "appointmentservice",
                     "{{appointmentServiceId}}"
                   ]
