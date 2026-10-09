@@ -488,6 +488,7 @@ export const getSampleById = async (
           generatedAt: "desc",
         },
       },
+      evidence: true,
     },
   });
 
@@ -540,14 +541,14 @@ export const getSampleByBarcode = async (
 // UPDATE SAMPLE
 // =========================================================
 
+
+
 export const updateSample = async (
   sampleId: string,
   data: UpdateSampleInput,
 ) => {
   const existingSample = await prisma.sample.findUnique({
-    where: {
-      sampleId,
-    },
+    where: { sampleId },
     include: {
       appointmentTest: true,
       homeCollection: true,
@@ -562,14 +563,12 @@ export const updateSample = async (
   const newStatus = data.status;
 
   // -------------------------------------------------------
-  // Prevent update without status/other fields
+  // UPDATE SAMPLE DETAILS WITHOUT CHANGING STATUS
   // -------------------------------------------------------
 
   if (!newStatus) {
     return prisma.sample.update({
-      where: {
-        sampleId,
-      },
+      where: { sampleId },
       data: {
         condition: data.condition,
         rejectionReason: data.rejectionReason,
@@ -579,6 +578,9 @@ export const updateSample = async (
         appointmentTest: true,
         collector: true,
         homeCollection: true,
+        trackingEvents: true,
+        otpVerifications: true,
+        evidence: true,
       },
     });
   }
@@ -587,25 +589,38 @@ export const updateSample = async (
   // COLLECTION
   // -------------------------------------------------------
 
- if (newStatus === "COLLECTED") {
-  if (currentStatus !== "PENDING_COLLECTION") {
-    throw new Error(
-      "Sample can only be collected from PENDING_COLLECTION",
-    );
-  }
-
-  // OTP is required only for HOME collection.
-  // CENTER collection is performed directly by lab staff.
-  if (existingSample.homeCollectionId) {
-    const otpVerified = await isCollectionOtpVerified(sampleId);
-
-    if (!otpVerified) {
+  if (newStatus === "COLLECTED") {
+    if (currentStatus !== "PENDING_COLLECTION") {
       throw new Error(
-        "OTP verification is required before collecting the home sample",
+        "Sample can only be collected from PENDING_COLLECTION",
       );
     }
+
+    // Collection photo is mandatory
+    const collectionPhoto = await prisma.sampleEvidence.findFirst({
+      where: {
+        sampleId,
+        type: "COLLECTION_PHOTO",
+      },
+    });
+
+    if (!collectionPhoto) {
+      throw new Error(
+        "Upload a collection photo before marking the sample as COLLECTED",
+      );
+    }
+
+    // OTP is required for home collection
+    if (existingSample.homeCollectionId) {
+      const otpVerified = await isCollectionOtpVerified(sampleId);
+
+      if (!otpVerified) {
+        throw new Error(
+          "OTP verification is required before collecting the home sample",
+        );
+      }
+    }
   }
-}
 
   // -------------------------------------------------------
   // IN TRANSIT
@@ -645,6 +660,7 @@ export const updateSample = async (
 
   // -------------------------------------------------------
   // COMPLETED
+  // A report with at least one file is mandatory
   // -------------------------------------------------------
 
   if (newStatus === "COMPLETED") {
@@ -653,23 +669,72 @@ export const updateSample = async (
         "Sample must be PROCESSING before COMPLETED",
       );
     }
+
+    // Resolve the appointment through the sample's appointment test
+    const appointmentTest = existingSample.appointmentTest;
+
+    if (!appointmentTest) {
+      throw new Error(
+        "Appointment test not found for this sample",
+      );
+    }
+
+    // Find the appointment associated with this appointment test
+    const appointmentId = appointmentTest.appointmentId;
+
+    if (!appointmentId) {
+      throw new Error(
+        "Appointment not found for this sample",
+      );
+    }
+
+    const report = await prisma.report.findUnique({
+      where: {
+        appointmentId,
+      },
+      include: {
+        files: {
+          select: {
+            reportFileId: true,
+          },
+        },
+      },
+    });
+
+    if (!report) {
+      throw new Error(
+        "Upload a report before completing the sample",
+      );
+    }
+
+    if (
+      report.status !== "UPLOADED" &&
+      report.status !== "SENT"
+    ) {
+      throw new Error(
+        "Report must be UPLOADED or SENT before completing the sample",
+      );
+    }
+
+    if (report.files.length === 0) {
+      throw new Error(
+        "Upload at least one report file before completing the sample",
+      );
+    }
   }
 
   // -------------------------------------------------------
   // REJECTED
   // -------------------------------------------------------
 
-  if (
-    newStatus === "REJECTED" &&
-    !data.rejectionReason
-  ) {
+  if (newStatus === "REJECTED" && !data.rejectionReason) {
     throw new Error(
       "Rejection reason is required when rejecting a sample",
     );
   }
 
   // -------------------------------------------------------
-  // Build update data
+  // BUILD UPDATE DATA
   // -------------------------------------------------------
 
   const updateData: any = {
@@ -679,34 +744,25 @@ export const updateSample = async (
     notes: data.notes,
   };
 
-  // Backend-generated collection timestamp
   if (newStatus === "COLLECTED") {
     updateData.collectedAt = new Date();
   }
 
-  // Backend-generated received timestamp
   if (newStatus === "RECEIVED") {
     updateData.receivedAt = new Date();
   }
 
   // -------------------------------------------------------
-  // Update sample
+  // UPDATE SAMPLE
   // -------------------------------------------------------
 
-  const updatedSample = await prisma.sample.update({
-    where: {
-      sampleId,
-    },
+  await prisma.sample.update({
+    where: { sampleId },
     data: updateData,
-    include: {
-      appointmentTest: true,
-      collector: true,
-      homeCollection: true,
-    },
   });
 
   // -------------------------------------------------------
-  // Tracking
+  // TRACKING
   // -------------------------------------------------------
 
   let trackingStatus:
@@ -745,14 +801,13 @@ export const updateSample = async (
   }
 
   // -------------------------------------------------------
-  // Update AppointmentTest
+  // UPDATE APPOINTMENT TEST
   // -------------------------------------------------------
 
   if (newStatus === "COLLECTED") {
     await prisma.appointmentTest.update({
       where: {
-        appointmentTestId:
-          existingSample.appointmentTestId,
+        appointmentTestId: existingSample.appointmentTestId,
       },
       data: {
         status: "SAMPLE_COLLECTED",
@@ -763,8 +818,7 @@ export const updateSample = async (
   if (newStatus === "PROCESSING") {
     await prisma.appointmentTest.update({
       where: {
-        appointmentTestId:
-          existingSample.appointmentTestId,
+        appointmentTestId: existingSample.appointmentTestId,
       },
       data: {
         status: "PROCESSING",
@@ -775,8 +829,7 @@ export const updateSample = async (
   if (newStatus === "COMPLETED") {
     await prisma.appointmentTest.update({
       where: {
-        appointmentTestId:
-          existingSample.appointmentTestId,
+        appointmentTestId: existingSample.appointmentTestId,
       },
       data: {
         status: "COMPLETED",
@@ -785,15 +838,14 @@ export const updateSample = async (
   }
 
   // -------------------------------------------------------
-  // Update HomeCollection
+  // UPDATE HOME COLLECTION
   // -------------------------------------------------------
 
   if (existingSample.homeCollectionId) {
     if (newStatus === "COLLECTED") {
       await prisma.homeCollection.update({
         where: {
-          homeCollectionId:
-            existingSample.homeCollectionId,
+          homeCollectionId: existingSample.homeCollectionId,
         },
         data: {
           status: "SAMPLE_COLLECTED",
@@ -805,8 +857,7 @@ export const updateSample = async (
     if (newStatus === "RECEIVED") {
       await prisma.homeCollection.update({
         where: {
-          homeCollectionId:
-            existingSample.homeCollectionId,
+          homeCollectionId: existingSample.homeCollectionId,
         },
         data: {
           status: "IN_LAB",
@@ -817,8 +868,7 @@ export const updateSample = async (
     if (newStatus === "PROCESSING") {
       await prisma.homeCollection.update({
         where: {
-          homeCollectionId:
-            existingSample.homeCollectionId,
+          homeCollectionId: existingSample.homeCollectionId,
         },
         data: {
           status: "PROCESSING",
@@ -829,8 +879,7 @@ export const updateSample = async (
     if (newStatus === "COMPLETED") {
       await prisma.homeCollection.update({
         where: {
-          homeCollectionId:
-            existingSample.homeCollectionId,
+          homeCollectionId: existingSample.homeCollectionId,
         },
         data: {
           status: "COMPLETED",
@@ -842,8 +891,7 @@ export const updateSample = async (
     if (newStatus === "REJECTED") {
       await prisma.homeCollection.update({
         where: {
-          homeCollectionId:
-            existingSample.homeCollectionId,
+          homeCollectionId: existingSample.homeCollectionId,
         },
         data: {
           status: "CANCELLED",
@@ -852,7 +900,23 @@ export const updateSample = async (
     }
   }
 
-  return updatedSample;
+  // -------------------------------------------------------
+  // RETURN FRESH SAMPLE WITH UPDATED RELATIONS
+  // -------------------------------------------------------
+
+  return prisma.sample.findUnique({
+    where: { sampleId },
+    include: {
+      appointmentTest: true,
+      collector: true,
+      homeCollection: true,
+      trackingEvents: {
+        orderBy: { createdAt: "desc" },
+      },
+      otpVerifications: true,
+      evidence: true,
+    },
+  });
 };
 
 // =========================================================
@@ -878,3 +942,205 @@ export const deleteSample = async (
     },
   });
 };
+
+
+export const verifyCollectorCollectionOtp = async (
+  sampleId: string,
+  otp: string,
+  userId: string,
+) => {
+  const sample = await prisma.sample.findUnique({
+    where: { sampleId },
+    include: {
+      homeCollection: {
+        include: {
+          collectorAssignment: {
+            include: {
+              collector: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!sample) {
+    throw new Error("Sample not found");
+  }
+
+  if (!sample.homeCollectionId || !sample.homeCollection) {
+    throw new Error("Sample is not part of a home collection");
+  }
+
+  const assignment = sample.homeCollection.collectorAssignment;
+
+  if (!assignment) {
+    throw new Error("No collector assignment found");
+  }
+
+  if (assignment.collector.userId !== userId) {
+    throw new Error("Sample is not assigned to this collector");
+  }
+
+  if (assignment.status !== "ACCEPTED") {
+    throw new Error("Collector must accept the assignment first");
+  }
+
+  return verifyCollectionOtp(sampleId, otp);
+};
+
+
+export const uploadCollectorSampleEvidence = async (
+  sampleId: string,
+  userId: string,
+  file: Express.Multer.File,
+  type: "COLLECTION_PHOTO" | "DELIVERY_PROOF",
+) => {
+  const sample = await prisma.sample.findUnique({
+    where: { sampleId },
+    include: {
+      homeCollection: {
+        include: {
+          collectorAssignment: {
+            include: {
+              collector: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!sample) {
+    throw new Error("Sample not found");
+  }
+
+  if (!sample.homeCollection?.collectorAssignment) {
+    throw new Error("No collector assignment found");
+  }
+
+  const assignment = sample.homeCollection.collectorAssignment;
+
+  if (assignment.collector.userId !== userId) {
+    throw new Error("Sample is not assigned to this collector");
+  }
+
+  if (assignment.status !== "ACCEPTED") {
+    throw new Error("Collector must accept the assignment first");
+  }
+
+  if (assignment.collector.status !== "ACTIVE") {
+    throw new Error("Collector is inactive");
+  }
+
+  // Only image evidence is allowed.
+  if (!["image/jpeg", "image/png"].includes(file.mimetype)) {
+    throw new Error("Only JPG and PNG images are allowed");
+  }
+
+  const trackingEvents = await prisma.sampleTracking.findMany({
+  where: { sampleId },
+  select: { status: true },
+});
+
+const hasBeenCollected = trackingEvents.some(
+  (event) => event.status === "COLLECTED",
+);
+
+const hasBeenInTransit = trackingEvents.some(
+  (event) => event.status === "IN_TRANSIT",
+);
+
+if (
+  type === "COLLECTION_PHOTO" &&
+  !hasBeenCollected
+) {
+  throw new Error("Sample must have a COLLECTED tracking event before uploading a collection photo");
+}
+
+if (
+  type === "DELIVERY_PROOF" &&
+  !hasBeenInTransit
+) {
+  throw new Error("Sample must have an IN_TRANSIT tracking event before uploading delivery proof");
+}
+
+  return prisma.sampleEvidence.create({
+    data: {
+      sampleId,
+      collectorId: assignment.collectorId,
+      type,
+      // Matches your existing reportUpload destination.
+      fileUrl: `reports/${file.filename}`,
+      fileName: file.originalname,
+      mimeType: file.mimetype,
+      fileSize: file.size,
+    },
+  });
+};
+
+
+
+type CollectorSampleStatus = "COLLECTED" | "IN_TRANSIT";
+
+export const updateCollectorSampleStatus = async (
+  sampleId: string,
+  userId: string,
+  data: Omit<UpdateSampleInput, "status"> & {
+    status: CollectorSampleStatus;
+  },
+) => {
+  const sample = await prisma.sample.findUnique({
+    where: { sampleId },
+    include: {
+      homeCollection: {
+        include: {
+          collectorAssignment: {
+            include: {
+              collector: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!sample) {
+    throw new Error("Sample not found");
+  }
+
+  if (!sample.homeCollectionId || !sample.homeCollection) {
+    throw new Error("Sample is not part of a home collection");
+  }
+
+  const assignment = sample.homeCollection.collectorAssignment;
+
+  if (!assignment) {
+    throw new Error("No collector assignment found");
+  }
+
+  if (assignment.collector.userId !== userId) {
+    throw new Error("Sample is not assigned to this collector");
+  }
+
+  if (assignment.status !== "ACCEPTED") {
+    throw new Error("Collector must accept the assignment first");
+  }
+
+  if (assignment.collector.status !== "ACTIVE") {
+    throw new Error("Collector is inactive");
+  }
+
+  if (
+    data.status !== "COLLECTED" &&
+    data.status !== "IN_TRANSIT"
+  ) {
+    throw new Error(
+      "Collector can only set status to COLLECTED or IN_TRANSIT",
+    );
+  }
+
+  return updateSample(sampleId, data);
+};
+
+

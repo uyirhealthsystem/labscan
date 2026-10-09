@@ -467,7 +467,8 @@ model HomeCollection {
 // =========================================================
 
 model Collector {
-  collectorId String @id @default(uuid())
+  collectorId String  @id @default(uuid())
+  userId      String? @unique
 
   labId String
 
@@ -491,7 +492,8 @@ model Collector {
 
   assignments CollectorAssignment[]
 
-  samples Sample[]
+  samples  Sample[]
+  evidence SampleEvidence[]
 
   @@index([labId])
   @@index([status])
@@ -580,6 +582,7 @@ model Sample {
 
   trackingEvents   SampleTracking[]
   otpVerifications SampleOtpVerification[]
+  evidence         SampleEvidence[]
 
   @@index([appointmentTestId])
   @@index([homeCollectionId])
@@ -873,6 +876,29 @@ model SupportTicket {
   @@index([createdAt])
 }
 
+model SampleEvidence {
+  evidenceId String @id @default(uuid())
+
+  sampleId    String
+  collectorId String?
+
+  type     SampleEvidenceType
+  fileUrl  String
+  fileName String?
+  mimeType String?
+  fileSize Int?
+  notes    String?
+
+  createdAt DateTime @default(now())
+
+  sample    Sample     @relation(fields: [sampleId], references: [sampleId], onDelete: Cascade)
+  collector Collector? @relation(fields: [collectorId], references: [collectorId])
+
+  @@index([sampleId])
+  @@index([collectorId])
+  @@index([type])
+}
+
 // =========================================================
 // ENUMS
 // =========================================================
@@ -974,6 +1000,7 @@ enum CollectorStatus {
 enum CollectorAssignmentStatus {
   ASSIGNED
   ACCEPTED
+  REJECTED
   COMPLETED
   CANCELLED
 }
@@ -1050,6 +1077,11 @@ enum SampleTrackingStatus {
 enum SampleOtpPurpose {
   COLLECTION_VERIFICATION
   SAMPLE_HANDOVER
+}
+
+enum SampleEvidenceType {
+  COLLECTION_PHOTO
+  DELIVERY_PROOF
 }
 
 enum BankAccountStatus {

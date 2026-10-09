@@ -93,7 +93,7 @@ export const uploadReport = async (
     },
   });
 
-  const fileUrl = `/uploads/reports/${file.filename}`;
+  const fileUrl = `reports/${file.filename}`;
 
   if (!report) {
     report = await prisma.report.create({

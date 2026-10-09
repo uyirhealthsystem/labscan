@@ -20,6 +20,11 @@ import {
   updateCollector,
   updateCollectorAssignment,
   updateHomeCollection,
+  getMyCollectorBookings,
+  acceptMyCollectorAssignment,
+  rejectMyCollectorAssignment,
+  getHomeCollectionSummary,
+  getHomeCollectionHistory
 } from "../services/homecollection.service";
 
 // =========================================================
@@ -327,42 +332,38 @@ export async function deleteCollectorController(
 // COLLECTOR ASSIGNMENT
 // =========================================================
 
+
 export async function createCollectorAssignmentController(
   req: Request,
   res: Response,
 ) {
   try {
-    const {
-      homeCollectionId,
-      collectorId,
-      status,
-    } = req.body;
+    const { homeCollectionId, collectorId } = req.body;
 
     if (!homeCollectionId || !collectorId) {
       return res.status(400).json({
         status: "error",
-        message:
-          "homeCollectionId and collectorId are required",
+        message: "homeCollectionId and collectorId are required",
       });
     }
 
-    const assignment =
-      await createCollectorAssignment({
-        homeCollectionId,
-        collectorId,
-        status,
-      });
+    const assignment = await createCollectorAssignment({
+      homeCollectionId,
+      collectorId,
+    });
 
     return res.status(201).json({
       status: "success",
-      message:
-        "Collector assigned successfully",
+      message: "Collector assigned successfully",
       data: assignment,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to assign collector",
     });
   }
 }
@@ -550,6 +551,230 @@ export async function getHomeCollectionTrackingByIdController(
     return res.status(404).json({
       status: "error",
       message: error.message,
+    });
+  }
+}
+
+export async function getMyCollectorBookingsController(
+  req: Request,
+  res: Response,
+) {
+  try {
+    const userId = req.headers["x-user-id"];
+
+    if (typeof userId !== "string" || !userId.trim()) {
+      return res.status(401).json({
+        status: "error",
+        message: "User ID is missing from request headers",
+      });
+    }
+
+    const result = await getMyCollectorBookings(userId);
+
+    return res.status(200).json({
+      status: "success",
+      message: "Collector bookings fetched successfully",
+      data: result,
+    });
+  } catch (error: any) {
+    const statusCode =
+      error.message === "Collector not found for this user"
+        ? 404
+        : error.message === "Collector account is inactive"
+          ? 403
+          : 500;
+
+    return res.status(statusCode).json({
+      status: "error",
+      message: error.message || "Failed to fetch collector bookings",
+    });
+  }
+}
+
+export const acceptMyCollectorAssignmentController = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+   const userId = req.headers["x-user-id"];
+
+if (typeof userId !== "string" || !userId) {
+  return res.status(401).json({
+    status: "error",
+    message: "Valid user ID is required",
+  });
+}
+    const assignmentId = req.params.assignmentId;
+
+if (typeof assignmentId !== "string" || !assignmentId) {
+  return res.status(400).json({
+    status: "error",
+    message: "Valid assignment ID is required",
+  });
+}
+
+    const assignment = await acceptMyCollectorAssignment(
+      assignmentId,
+      userId,
+    );
+
+    return res.status(200).json({
+      status: "success",
+      message: "Assignment accepted successfully",
+      data: assignment,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Something went wrong";
+
+    const statusCode =
+      message === "Collector not found" ||
+      message === "Assignment not found"
+        ? 404
+        : message === "Collector is not active"
+          ? 403
+          : message === "Assignment does not belong to this collector"
+            ? 403
+            : message === "Only assigned bookings can be accepted"
+              ? 409
+              : 500;
+
+    return res.status(statusCode).json({
+      status: "error",
+      message,
+    });
+  }
+};
+
+
+export const rejectMyCollectorAssignmentController = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const userId = req.headers["x-user-id"];
+    const assignmentId = req.params.assignmentId;
+
+    if (typeof userId !== "string" || !userId) {
+      return res.status(401).json({
+        status: "error",
+        message: "Valid user ID is required",
+      });
+    }
+
+    if (typeof assignmentId !== "string" || !assignmentId) {
+      return res.status(400).json({
+        status: "error",
+        message: "Valid assignment ID is required",
+      });
+    }
+
+    const assignment = await rejectMyCollectorAssignment(
+      assignmentId,
+      userId,
+    );
+
+    return res.status(200).json({
+      status: "success",
+      message: "Assignment rejected successfully",
+      data: assignment,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Something went wrong";
+
+    const statusCode =
+      message === "Collector not found" ||
+      message === "Assignment not found"
+        ? 404
+        : message === "Collector is not active" ||
+            message === "Assignment does not belong to this collector"
+          ? 403
+          : message === "This assignment cannot be rejected"
+            ? 409
+            : 500;
+
+    return res.status(statusCode).json({
+      status: "error",
+      message,
+    });
+  }
+};
+
+
+
+
+
+export async function getHomeCollectionSummaryController(
+  req: Request,
+  res: Response,
+) {
+  const labUserId = req.header("x-user-id");
+
+  if (!labUserId) {
+    return res.status(401).json({
+      status: "error",
+      message: "Missing authenticated user",
+    });
+  }
+
+  const summary = await getHomeCollectionSummary(labUserId);
+
+  return res.status(200).json({
+    status: "success",
+    data: summary,
+  });
+}
+
+
+
+
+
+export async function getHomeCollectionHistoryController(
+  req: Request,
+  res: Response,
+) {
+  try {
+    const  homeCollectionId  = req.params.homeCollectionId as string;
+    const labUserId = req.header("x-user-id");
+
+    if (!labUserId) {
+      return res.status(401).json({
+        status: "error",
+        message: "Missing authenticated user",
+      });
+    }
+
+    if (!homeCollectionId) {
+      return res.status(400).json({
+        status: "error",
+        message: "homeCollectionId is required",
+      });
+    }
+
+    const history = await getHomeCollectionHistory(
+      homeCollectionId,
+      labUserId,
+    );
+
+    return res.status(200).json({
+      status: "success",
+      data: history,
+    });
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Failed to fetch history";
+
+    const statusCode =
+      message === "Lab not found"
+        ? 404
+        : message === "Home collection not found"
+          ? 404
+          : 500;
+
+    return res.status(statusCode).json({
+      status: "error",
+      message,
     });
   }
 }

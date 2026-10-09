@@ -11,7 +11,14 @@ import {
   deleteSampleController,
   generateCollectionOtpController,
   verifyCollectionOtpController,
+  verifyCollectorCollectionOtpController,
+  uploadCollectorSampleEvidenceController,
+  updateCollectorSampleStatusController
 } from "../controllers/sample.controller";
+
+
+
+import { reportUpload } from "../middlewares/upload.middleware";
 
 const router = Router();
 
@@ -59,6 +66,22 @@ router.post(
   verifyCollectionOtpController,
 );
 
+router.post(
+  "/collector/samples/:sampleId/verify-otp",
+  verifyCollectorCollectionOtpController,
+);
+
+router.patch(
+  "/collector/samples/:sampleId/status",
+  updateCollectorSampleStatusController,
+);
+
+
+router.post(
+  "/collector/samples/:sampleId/evidence",
+  reportUpload.single("file"),
+  uploadCollectorSampleEvidenceController,
+);
 // =========================================================
 // SAMPLE BY ID
 // =========================================================

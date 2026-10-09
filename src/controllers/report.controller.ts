@@ -70,46 +70,56 @@ export async function getReportsController(
   }
 }
 
-export const uploadReportController = async (
+
+
+
+
+export async function uploadReportController(
   req: Request,
   res: Response,
-) => {
+): Promise<void> {
   try {
-    const { appointmentId } = req.body;
+    const appointmentId = String(req.params.appointmentId);
+    const file = req.file;
 
-    if (!appointmentId) {
-      return res.status(400).json({
+    if (!appointmentId || appointmentId === "undefined") {
+      res.status(400).json({
         status: "error",
-        message: "appointmentId is required",
+        message: "Appointment ID is required in the URL",
       });
+      return;
     }
 
-    if (!req.file) {
-      return res.status(400).json({
+    if (!file) {
+      res.status(400).json({
         status: "error",
         message: "Report file is required",
       });
+      return;
     }
 
-    const result = await uploadReport(
-      appointmentId,
-      req.file,
-    );
+    const result = await uploadReport(appointmentId, {
+      originalname: file.originalname,
+      filename: file.filename,
+      mimetype: file.mimetype,
+      size: file.size,
+    });
 
-    return res.status(201).json({
+    res.status(200).json({
       status: "success",
       message: "Report uploaded successfully",
       data: result,
     });
-  } catch (error: any) {
-    console.error("Upload report error:", error);
-
-    return res.status(500).json({
+  } catch (error) {
+    res.status(400).json({
       status: "error",
-      message: error.message || "Failed to upload report",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to upload report",
     });
   }
-};
+}
 
 export async function getReportByIdController(
   req: Request,

@@ -34,10 +34,10 @@ const router = Router();
 
 router.post("/report", createReportController);
 
-router.get("/report", getReportsController);
+router.get("/reports", getReportsController);
 
 router.post(
-  "/report/upload",
+  "/reports/upload/:appointmentId",
   reportUpload.single("file"),
   uploadReportController,
 );

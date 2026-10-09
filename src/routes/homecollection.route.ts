@@ -12,6 +12,7 @@ import {
   getCollectorByIdController,
   getCollectorsByLabController,
   getCollectorsController,
+  getMyCollectorBookingsController,
   getHomeCollectionByAppointmentIdController,
   getHomeCollectionByIdController,
   getHomeCollectionTrackingByIdController,
@@ -20,6 +21,10 @@ import {
   updateCollectorAssignmentController,
   updateCollectorController,
   updateHomeCollectionController,
+  acceptMyCollectorAssignmentController,
+  rejectMyCollectorAssignmentController,
+  getHomeCollectionSummaryController,
+  getHomeCollectionHistoryController
 } from "../controllers/homecollection.controller";
 
 const router = Router();
@@ -39,6 +44,11 @@ router.get(
 );
 
 router.get(
+  "/homecollection/:homeCollectionId/history",
+  getHomeCollectionHistoryController,
+);
+
+router.get(
   "/homecollection/appointment/:appointmentId",
   getHomeCollectionByAppointmentIdController,
 );
@@ -53,6 +63,14 @@ router.put(
   updateHomeCollectionController,
 );
 
+
+router.get(
+  "/homecollection/summary",
+  getHomeCollectionSummaryController,
+);
+
+
+
 // =========================================================
 // COLLECTOR
 // =========================================================
@@ -63,8 +81,13 @@ router.post(
 );
 
 router.get(
-  "/collector",
+  "/collectors",
   getCollectorsController,
+);
+
+router.get(
+  "/collectors/me/bookings",
+  getMyCollectorBookingsController,
 );
 
 router.get(
@@ -133,6 +156,16 @@ router.get(
 router.get(
   "/homecollectiontracking/:trackingId",
   getHomeCollectionTrackingByIdController,
+);
+
+router.patch(
+  "/collectorassignments/:assignmentId/accept",
+  acceptMyCollectorAssignmentController,
+);
+
+router.patch(
+  "/collectorassignments/:assignmentId/reject",
+  rejectMyCollectorAssignmentController,
 );
 
 export default router;
