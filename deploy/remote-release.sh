@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs ON the EC2 host (piped in over SSH by the GitHub Actions deploy job).
-# Promotes the freshly-uploaded release in releases/next, applies Prisma
-# migrations, restarts the service and rolls back if the health check fails.
+# Promotes the freshly-uploaded release (dist + production node_modules) in
+# releases/next, applies Prisma migrations, restarts the service and rolls back if the health check fails.
 set -euo pipefail
 
 SERVICE=labscan
@@ -28,8 +28,11 @@ PORT=${PORT:-8082}
 mkdir -p "$ROOT/shared/uploads"
 ln -sfn "$ROOT/shared/uploads" "$REL/uploads"
 
-echo "==> installing production dependencies"
-npm ci --omit=dev
+# node_modules arrives pre-installed from the CI runner (a full `npm ci` here
+# gets OOM-killed on a small instance). Only the Prisma schema engine is a
+# platform-specific binary, so re-run its install script to fetch this host's.
+echo "==> fetching Prisma engine for this host"
+npm rebuild @prisma/engines
 
 echo "==> applying database migrations"
 npx prisma migrate deploy --config prisma7.config.ts

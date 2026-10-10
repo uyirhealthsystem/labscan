@@ -104,14 +104,18 @@ jobs:
           npx prisma generate --config prisma7.config.ts
           npm run build
 
-      # dist/ already contains the compiled Prisma client, so the EC2 host only
-      # installs production deps and runs migrations - it never runs tsc.
+      # dist/ already contains the compiled Prisma client and node_modules is
+      # shipped pre-installed, so the EC2 host never runs tsc or `npm ci`
+      # (a full install there gets OOM-killed - exit 137 - on a small instance).
+      - name: Prune to production dependencies
+        run: npm prune --omit=dev --ignore-scripts
+
       - name: Assemble release bundle
         run: |
           rm -rf release
           mkdir -p release
-          cp -r dist package.json package-lock.json prisma prisma7.config.ts release/
-          cp -r deploy release/deploy
+          cp -a dist node_modules package.json package-lock.json prisma prisma7.config.ts release/
+          cp -a deploy release/deploy
 
       - name: Configure SSH
         run: |
