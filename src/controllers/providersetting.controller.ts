@@ -1,9 +1,15 @@
+
 import { Request, Response } from "express";
 
 import {
   getProviderSettings,
   updateProviderSettings,
 } from "../services/providersetting.service";
+
+import {
+  getRequestedLanguage,
+  translateResponse,
+} from "../utils/translate.response";
 
 export const getProviderSettingsController = async (
   req: Request,
@@ -19,17 +25,21 @@ export const getProviderSettingsController = async (
       scanCenterId,
     );
 
+    const language = getRequestedLanguage(req);
+
     return res.status(200).json({
       status: "success",
-      data: settings,
+      data: await translateResponse(settings, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Get provider settings error:", error);
 
     return res.status(400).json({
       status: "error",
       message:
-        error.message || "Failed to get provider settings",
+        error instanceof Error
+          ? error.message
+          : "Failed to get provider settings",
     });
   }
 };
@@ -41,18 +51,23 @@ export const updateProviderSettingsController = async (
   try {
     const settings = await updateProviderSettings(req.body);
 
+    const language = getRequestedLanguage(req);
+
     return res.status(200).json({
       status: "success",
       message: "Provider settings updated successfully",
-      data: settings,
+      data: await translateResponse(settings, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Update provider settings error:", error);
 
     return res.status(400).json({
       status: "error",
       message:
-        error.message || "Failed to update provider settings",
+        error instanceof Error
+          ? error.message
+          : "Failed to update provider settings",
     });
   }
 };
+

@@ -24,7 +24,7 @@ export function createApp(): Application {
 
   app.use("/uploads",express.static(path.join(process.cwd(), "uploads")));
   // Namespaced so the api-gateway can route every labscan path by one prefix.
-  app.use('/api/v1/labscan', routes);
+  app.use('/api/v1', routes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

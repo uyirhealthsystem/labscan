@@ -11,6 +11,7 @@ import sampleRoutes from "../routes/sample.route"
 import labscanRoutes from "../routes/labscan.route"
 import timeSlotRoutes from "../routes/timeslot.route"
 import providerSettingRoutes from "../routes/providersetting.route"
+import translateRoute from "../routes/translate.route"
 
 const router = Router();
 
@@ -27,5 +28,6 @@ router.use('/',sampleRoutes);
 router.use('/',labscanRoutes);
 router.use('/',timeSlotRoutes);
 router.use('/',providerSettingRoutes);
+router.use('/',translateRoute)
 
 export default router;

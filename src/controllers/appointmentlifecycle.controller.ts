@@ -1,3 +1,4 @@
+
 import { Request, Response } from "express";
 
 import {
@@ -7,6 +8,11 @@ import {
   getRescheduleById,
   getReschedulesByAppointment,
 } from "../services/appointmentlifecycle.service";
+
+import {
+  getRequestedLanguage,
+  translateResponse,
+} from "../utils/translate.response";
 
 // =========================================================
 // CANCELLATION
@@ -27,8 +33,7 @@ export async function createCancellationController(
     if (!appointmentId || !reason) {
       return res.status(400).json({
         status: "error",
-        message:
-          "appointmentId and reason are required",
+        message: "appointmentId and reason are required",
       });
     }
 
@@ -39,15 +44,20 @@ export async function createCancellationController(
       cancelledBy,
     });
 
+    const language = getRequestedLanguage(req);
+
     return res.status(201).json({
       status: "success",
       message: "Appointment cancelled successfully",
-      data: result,
+      data: await translateResponse(result, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to cancel appointment",
     });
   }
 }
@@ -60,18 +70,21 @@ export async function getCancellationByAppointmentIdController(
     const { appointmentId } = req.params;
 
     const cancellation =
-      await getCancellationByAppointmentId(
-        appointmentId,
-      );
+      await getCancellationByAppointmentId(appointmentId);
+
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: cancellation,
+      data: await translateResponse(cancellation, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(404).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Cancellation not found",
     });
   }
 }
@@ -116,15 +129,20 @@ export async function createRescheduleController(
       rescheduledBy,
     });
 
+    const language = getRequestedLanguage(req);
+
     return res.status(201).json({
       status: "success",
       message: "Appointment rescheduled successfully",
-      data: result,
+      data: await translateResponse(result, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to reschedule appointment",
     });
   }
 }
@@ -137,18 +155,21 @@ export async function getReschedulesByAppointmentController(
     const { appointmentId } = req.params;
 
     const reschedules =
-      await getReschedulesByAppointment(
-        appointmentId,
-      );
+      await getReschedulesByAppointment(appointmentId);
+
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: reschedules,
+      data: await translateResponse(reschedules, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch appointment reschedules",
     });
   }
 }
@@ -160,17 +181,22 @@ export async function getRescheduleByIdController(
   try {
     const { rescheduleId } = req.params;
 
-    const reschedule =
-      await getRescheduleById(rescheduleId);
+    const reschedule = await getRescheduleById(rescheduleId);
+
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: reschedule,
+      data: await translateResponse(reschedule, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(404).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Reschedule not found",
     });
   }
 }
+

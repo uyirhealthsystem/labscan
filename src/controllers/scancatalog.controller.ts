@@ -1,5 +1,6 @@
 
 import { Request, Response } from "express";
+
 import {
   createScanServiceCatalog,
   deleteScanServiceCatalog,
@@ -7,7 +8,12 @@ import {
   getScanServiceCatalogs,
   updateScanServiceCatalog,
 } from "../services/scancatalog.service";
-import { requireUserId } from "../utils/requireuser";
+
+import {
+  getRequestedLanguage,
+  translateResponse,
+} from "../utils/translate.response";
+
 // =========================================================
 // CREATE SCAN SERVICE CATALOG
 // =========================================================
@@ -47,11 +53,13 @@ export async function createScanServiceCatalogController(
       status,
     });
 
+    const language = getRequestedLanguage(req);
+
     return res.status(201).json({
       status: "success",
-      data: catalog,
+      data: await translateResponse(catalog, language),
     });
-  } catch (error) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
       message:
@@ -67,17 +75,18 @@ export async function createScanServiceCatalogController(
 // =========================================================
 
 export async function getScanServiceCatalogsController(
-  _req: Request,
+  req: Request,
   res: Response,
 ) {
   try {
     const catalogs = await getScanServiceCatalogs();
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: catalogs,
+      data: await translateResponse(catalogs, language),
     });
-  } catch (error) {
+  } catch (error: unknown) {
     return res.status(500).json({
       status: "error",
       message:
@@ -101,11 +110,13 @@ export async function getScanServiceCatalogByIdController(
       req.params.serviceCatalogId,
     );
 
+    const language = getRequestedLanguage(req);
+
     return res.status(200).json({
       status: "success",
-      data: catalog,
+      data: await translateResponse(catalog, language),
     });
-  } catch (error) {
+  } catch (error: unknown) {
     return res.status(404).json({
       status: "error",
       message:
@@ -130,11 +141,13 @@ export async function updateScanServiceCatalogController(
       req.body,
     );
 
+    const language = getRequestedLanguage(req);
+
     return res.status(200).json({
       status: "success",
-      data: catalog,
+      data: await translateResponse(catalog, language),
     });
-  } catch (error) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
       message:
@@ -158,11 +171,13 @@ export async function deleteScanServiceCatalogController(
       req.params.serviceCatalogId,
     );
 
+    const language = getRequestedLanguage(req);
+
     return res.status(200).json({
       status: "success",
-      data: catalog,
+      data: await translateResponse(catalog, language),
     });
-  } catch (error) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
       message:

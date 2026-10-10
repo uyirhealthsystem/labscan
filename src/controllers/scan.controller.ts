@@ -9,10 +9,15 @@ import {
   getScanCenters,
   updateScanCenter,
   getScanCentersByUserId,
-  getScanCenterMetricsByDistrict
+  getScanCenterMetricsByDistrict,
 } from "../services/scan.service";
 
 import { requireUserId } from "../utils/requireuser";
+
+import {
+  getRequestedLanguage,
+  translateResponse,
+} from "../utils/translate.response";
 
 // =========================================================
 // CREATE SCAN CENTER
@@ -54,15 +59,20 @@ export async function createScanCenterController(
       status,
     });
 
+    const language = getRequestedLanguage(req);
+
     return res.status(201).json({
       status: "success",
       message: "Scan center created successfully",
-      data: scanCenter,
+      data: await translateResponse(scanCenter, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to create scan center",
     });
   }
 }
@@ -77,15 +87,19 @@ export async function getScanCentersController(
 ) {
   try {
     const scanCenters = await getScanCenters();
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: scanCenters,
+      data: await translateResponse(scanCenters, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(500).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch scan centers",
     });
   }
 }
@@ -98,23 +112,34 @@ export async function getScanCentersByDistrictController(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const districtId = req.params.districtId as string;
+  try {
+    const districtId = req.params.districtId as string;
 
-  if (!districtId) {
-    res.status(400).json({
-      status: "error",
-      message: "districtId is required",
+    if (!districtId) {
+      res.status(400).json({
+        status: "error",
+        message: "districtId is required",
+      });
+      return;
+    }
+
+    const scanCenters = await getScanCentersByDistrict(districtId);
+    const language = getRequestedLanguage(req);
+
+    res.status(200).json({
+      status: "success",
+      districtId,
+      data: await translateResponse(scanCenters, language),
     });
-    return;
+  } catch (error: unknown) {
+    res.status(500).json({
+      status: "error",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch scan centers by district",
+    });
   }
-
-  const scanCenters = await getScanCentersByDistrict(districtId);
-
-  res.status(200).json({
-    status: "success",
-    districtId,
-    data: scanCenters,
-  });
 }
 
 // =========================================================
@@ -128,17 +153,20 @@ export async function getScanCenterByIdController(
   try {
     const { scanCenterId } = req.params;
 
-    const scanCenter =
-      await getScanCenterById(scanCenterId);
+    const scanCenter = await getScanCenterById(scanCenterId);
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: scanCenter,
+      data: await translateResponse(scanCenter, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(404).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Scan center not found",
     });
   }
 }
@@ -154,28 +182,28 @@ export async function updateScanCenterController(
   try {
     const { scanCenterId } = req.params;
 
-    const scanCenter =
-      await updateScanCenter(
-        scanCenterId,
-        req.body,
-      );
+    const scanCenter = await updateScanCenter(
+      scanCenterId,
+      req.body,
+    );
+
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
       message: "Scan center updated successfully",
-      data: scanCenter,
+      data: await translateResponse(scanCenter, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to update scan center",
     });
   }
 }
-
-// =========================================================
-// DELETE SCAN CENTER
-// =========================================================
 
 // =========================================================
 // DELETE SCAN CENTER - SOFT DELETE
@@ -189,20 +217,27 @@ export async function deleteScanCenterController(
     const { scanCenterId } = req.params;
 
     const scanCenter = await deleteScanCenter(scanCenterId);
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
       message: "Scan center deactivated successfully",
-      data: {
-        scanCenterId: scanCenter.scanCenterId,
-        name: scanCenter.name,
-        status: scanCenter.status,
-      },
+      data: await translateResponse(
+        {
+          scanCenterId: scanCenter.scanCenterId,
+          name: scanCenter.name,
+          status: scanCenter.status,
+        },
+        language,
+      ),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(404).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Scan center not found",
     });
   }
 }
@@ -219,38 +254,58 @@ export async function getScanCentersByUserIdController(
     const userId = requireUserId(req);
 
     const scanCenters = await getScanCentersByUserId(userId);
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: scanCenters,
+      data: await translateResponse(scanCenters, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(500).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch scan centers for user",
     });
   }
 }
 
+// =========================================================
+// GET SCAN CENTER METRICS BY DISTRICT
+// =========================================================
 
 export async function getScanCenterMetricsByDistrictController(
   req: Request,
   res: Response,
 ) {
   try {
-  const districtId = req.params.districtId as string;
+    const districtId = req.params.districtId as string;
 
-const data = await getScanCenterMetricsByDistrict(districtId);
+    if (!districtId) {
+      return res.status(400).json({
+        status: "error",
+        message: "districtId is required",
+      });
+    }
+
+    const data = await getScanCenterMetricsByDistrict(districtId);
+
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
       districtId,
-      data,
+      data: await translateResponse(data, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(500).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch scan center metrics",
     });
   }
 }
+

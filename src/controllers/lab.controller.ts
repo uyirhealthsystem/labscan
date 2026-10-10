@@ -9,22 +9,27 @@ import {
   getLabsByDistrict,
   updateLab,
   getLabsByUserId,
-  getLabMetricsByDistrict
+  getLabMetricsByDistrict,
 } from "../services/lab.service";
 
 import { requireUserId } from "../utils/requireuser";
 
-// =========================================================
-// CREATE LAB
-// =========================================================
+import {
+  getRequestedLanguage,
+  translateResponse,
+  translateInputToEnglish,
+} from "../utils/translate.response";
 
-export async function createLabController(
-  req: Request,
-  res: Response,
-) {
+// CREATE LAB
+export async function createLabController(req: Request, res: Response) {
   try {
-    // Get labUserId from x-user-id header
     const userId = requireUserId(req);
+    const language = getRequestedLanguage(req);
+
+    const translatedBody = await translateInputToEnglish(
+      req.body,
+      language,
+    );
 
     const {
       name,
@@ -34,7 +39,7 @@ export async function createLabController(
       address,
       districtId,
       status,
-    } = req.body;
+    } = translatedBody;
 
     if (!name) {
       return res.status(400).json({
@@ -57,7 +62,7 @@ export async function createLabController(
     return res.status(201).json({
       status: "success",
       message: "Lab created successfully",
-      data: lab,
+      data: await translateResponse(lab, language),
     });
   } catch (error: any) {
     return res.status(400).json({
@@ -67,20 +72,15 @@ export async function createLabController(
   }
 }
 
-// =========================================================
 // GET ALL LABS
-// =========================================================
-
-export async function getLabsController(
-  req: Request,
-  res: Response,
-) {
+export async function getLabsController(req: Request, res: Response) {
   try {
     const labs = await getLabs();
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: labs,
+      data: await translateResponse(labs, language),
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -90,45 +90,52 @@ export async function getLabsController(
   }
 }
 
+// GET LABS BY DISTRICT
 export async function getLabsByDistrictController(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const districtId = req.params.districtId as string;
+  try {
+    const districtId = req.params.districtId as string;
 
-  if (!districtId) {
-    res.status(400).json({
-      status: "error",
-      message: "districtId is required",
+    if (!districtId) {
+      res.status(400).json({
+        status: "error",
+        message: "districtId is required",
+      });
+      return;
+    }
+
+    const labs = await getLabsByDistrict(districtId);
+    const language = getRequestedLanguage(req);
+
+    res.status(200).json({
+      status: "success",
+      districtId,
+      data: await translateResponse(labs, language),
     });
-    return;
+  } catch (error: any) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
   }
-
-  const labs = await getLabsByDistrict(districtId);
-
-  res.status(200).json({
-    status: "success",
-    districtId,
-    data: labs,
-  });
 }
 
-// =========================================================
 // GET LAB BY ID
-// =========================================================
-
 export async function getLabByIdController(
   req: Request<{ labId: string }>,
   res: Response,
 ) {
   try {
     const { labId } = req.params;
+    const language = getRequestedLanguage(req);
 
     const lab = await getLabById(labId);
 
     return res.status(200).json({
       status: "success",
-      data: lab,
+      data: await translateResponse(lab, language),
     });
   } catch (error: any) {
     return res.status(404).json({
@@ -138,26 +145,26 @@ export async function getLabByIdController(
   }
 }
 
-// =========================================================
 // UPDATE LAB
-// =========================================================
-
 export async function updateLabController(
   req: Request<{ labId: string }>,
   res: Response,
 ) {
   try {
     const { labId } = req.params;
+    const language = getRequestedLanguage(req);
 
-    const lab = await updateLab(
-      labId,
+    const translatedBody = await translateInputToEnglish(
       req.body,
+      language,
     );
+
+    const lab = await updateLab(labId, translatedBody);
 
     return res.status(200).json({
       status: "success",
       message: "Lab updated successfully",
-      data: lab,
+      data: await translateResponse(lab, language),
     });
   } catch (error: any) {
     return res.status(400).json({
@@ -167,31 +174,28 @@ export async function updateLabController(
   }
 }
 
-// =========================================================
 // DELETE LAB
-// =========================================================
-
-// =========================================================
-// DELETE LAB - SOFT DELETE
-// =========================================================
-
 export async function deleteLabController(
   req: Request<{ labId: string }>,
   res: Response,
 ) {
   try {
     const { labId } = req.params;
+    const language = getRequestedLanguage(req);
 
     const lab = await deleteLab(labId);
 
     return res.status(200).json({
       status: "success",
       message: "Lab deactivated successfully",
-      data: {
-        labId: lab.labId,
-        name: lab.name,
-        status: lab.status,
-      },
+      data: await translateResponse(
+        {
+          labId: lab.labId,
+          name: lab.name,
+          status: lab.status,
+        },
+        language,
+      ),
     });
   } catch (error: any) {
     return res.status(404).json({
@@ -201,23 +205,20 @@ export async function deleteLabController(
   }
 }
 
-
-// =========================================================
 // GET LABS BY USER ID
-// =========================================================
-
 export async function getLabsByUserIdController(
   req: Request,
   res: Response,
 ) {
   try {
     const userId = requireUserId(req);
+    const language = getRequestedLanguage(req);
 
     const labs = await getLabsByUserId(userId);
 
     return res.status(200).json({
       status: "success",
-      data: labs,
+      data: await translateResponse(labs, language),
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -227,16 +228,14 @@ export async function getLabsByUserIdController(
   }
 }
 
-
-
+// GET LAB METRICS BY DISTRICT
 export async function getLabMetricsByDistrictController(
   req: Request,
   res: Response,
 ) {
   try {
-   const districtId = req.params.districtId as string;
-
-const data = await getLabMetricsByDistrict(districtId);
+    const districtId = req.params.districtId as string;
+    const data = await getLabMetricsByDistrict(districtId);
 
     return res.status(200).json({
       status: "success",
@@ -250,4 +249,3 @@ const data = await getLabMetricsByDistrict(districtId);
     });
   }
 }
-

@@ -1,3 +1,4 @@
+
 import { Request, Response } from "express";
 
 import {
@@ -8,24 +9,33 @@ import {
   deleteTimeSlot,
 } from "../services/timeslot.service";
 
+import {
+  getRequestedLanguage,
+  translateResponse,
+} from "../utils/translate.response";
+
 export const createTimeSlotController = async (
   req: Request,
   res: Response,
 ) => {
   try {
     const timeSlot = await createTimeSlot(req.body);
+    const language = getRequestedLanguage(req);
 
     return res.status(201).json({
       status: "success",
       message: "Time slot created successfully",
-      data: timeSlot,
+      data: await translateResponse(timeSlot, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Create time slot error:", error);
 
     return res.status(400).json({
       status: "error",
-      message: error.message || "Failed to create time slot",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to create time slot",
     });
   }
 };
@@ -36,7 +46,8 @@ export const getTimeSlotsController = async (
 ) => {
   try {
     const labId = req.query.labId as string | undefined;
-    const scanCenterId = req.query.scanCenterId as string | undefined;
+    const scanCenterId =
+      req.query.scanCenterId as string | undefined;
     const date = req.query.date as string | undefined;
 
     let isAvailable: boolean | undefined;
@@ -52,16 +63,21 @@ export const getTimeSlotsController = async (
       isAvailable,
     });
 
+    const language = getRequestedLanguage(req);
+
     return res.status(200).json({
       status: "success",
-      data: timeSlots,
+      data: await translateResponse(timeSlots, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Get time slots error:", error);
 
     return res.status(400).json({
       status: "error",
-      message: error.message || "Failed to get time slots",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to get time slots",
     });
   }
 };
@@ -74,24 +90,28 @@ export const getTimeSlotByIdController = async (
     const timeSlotId = req.params.timeSlotId as string;
 
     const timeSlot = await getTimeSlotById(timeSlotId);
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: timeSlot,
+      data: await translateResponse(timeSlot, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Get time slot error:", error);
 
-    if (error.message === "Time slot not found") {
+    const message =
+      error instanceof Error ? error.message : "Failed to get time slot";
+
+    if (message === "Time slot not found") {
       return res.status(404).json({
         status: "error",
-        message: error.message,
+        message,
       });
     }
 
     return res.status(400).json({
       status: "error",
-      message: error.message || "Failed to get time slot",
+      message,
     });
   }
 };
@@ -108,24 +128,31 @@ export const updateTimeSlotController = async (
       req.body,
     );
 
+    const language = getRequestedLanguage(req);
+
     return res.status(200).json({
       status: "success",
       message: "Time slot updated successfully",
-      data: timeSlot,
+      data: await translateResponse(timeSlot, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Update time slot error:", error);
 
-    if (error.message === "Time slot not found") {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to update time slot";
+
+    if (message === "Time slot not found") {
       return res.status(404).json({
         status: "error",
-        message: error.message,
+        message,
       });
     }
 
     return res.status(400).json({
       status: "error",
-      message: error.message || "Failed to update time slot",
+      message,
     });
   }
 };
@@ -143,19 +170,25 @@ export const deleteTimeSlotController = async (
       status: "success",
       message: "Time slot deleted successfully",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Delete time slot error:", error);
 
-    if (error.message === "Time slot not found") {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to delete time slot";
+
+    if (message === "Time slot not found") {
       return res.status(404).json({
         status: "error",
-        message: error.message,
+        message,
       });
     }
 
     return res.status(400).json({
       status: "error",
-      message: error.message || "Failed to delete time slot",
+      message,
     });
   }
 };
+

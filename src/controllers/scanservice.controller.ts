@@ -1,4 +1,6 @@
+
 import { Request, Response } from "express";
+
 import {
   createScanService,
   deleteScanService,
@@ -7,6 +9,10 @@ import {
   updateScanService,
 } from "../services/scanservice.service";
 
+import {
+  getRequestedLanguage,
+  translateResponse,
+} from "../utils/translate.response";
 
 // =========================================================
 // CREATE SCAN SERVICE
@@ -48,11 +54,13 @@ export async function createScanServiceController(
       status,
     });
 
+    const language = getRequestedLanguage(req);
+
     return res.status(201).json({
       status: "success",
-      data: scanService,
+      data: await translateResponse(scanService, language),
     });
-  } catch (error) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
       message:
@@ -62,7 +70,6 @@ export async function createScanServiceController(
     });
   }
 }
-
 
 // =========================================================
 // GET ALL SERVICES FOR A SCAN CENTER
@@ -75,14 +82,14 @@ export async function getScanServicesController(
   try {
     const { scanCenterId } = req.params;
 
-    const scanServices =
-      await getScanServices(scanCenterId);
+    const scanServices = await getScanServices(scanCenterId);
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: scanServices,
+      data: await translateResponse(scanServices, language),
     });
-  } catch (error) {
+  } catch (error: unknown) {
     return res.status(404).json({
       status: "error",
       message:
@@ -92,7 +99,6 @@ export async function getScanServicesController(
     });
   }
 }
-
 
 // =========================================================
 // GET SINGLE SCAN SERVICE
@@ -111,17 +117,18 @@ export async function getScanServiceByIdController(
       scanServiceId,
     } = req.params;
 
-    const scanService =
-      await getScanServiceById(
-        scanCenterId,
-        scanServiceId,
-      );
+    const scanService = await getScanServiceById(
+      scanCenterId,
+      scanServiceId,
+    );
+
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: scanService,
+      data: await translateResponse(scanService, language),
     });
-  } catch (error) {
+  } catch (error: unknown) {
     return res.status(404).json({
       status: "error",
       message:
@@ -131,7 +138,6 @@ export async function getScanServiceByIdController(
     });
   }
 }
-
 
 // =========================================================
 // UPDATE SCAN SERVICE
@@ -156,22 +162,23 @@ export async function updateScanServiceController(
       status,
     } = req.body;
 
-    const scanService =
-      await updateScanService(
-        scanCenterId,
-        scanServiceId,
-        {
-          price,
-          turnaroundTime,
-          status,
-        },
-      );
+    const scanService = await updateScanService(
+      scanCenterId,
+      scanServiceId,
+      {
+        price,
+        turnaroundTime,
+        status,
+      },
+    );
+
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: scanService,
+      data: await translateResponse(scanService, language),
     });
-  } catch (error) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
       message:
@@ -181,7 +188,6 @@ export async function updateScanServiceController(
     });
   }
 }
-
 
 // =========================================================
 // DELETE SCAN SERVICE
@@ -200,17 +206,18 @@ export async function deleteScanServiceController(
       scanServiceId,
     } = req.params;
 
-    const scanService =
-      await deleteScanService(
-        scanCenterId,
-        scanServiceId,
-      );
+    const scanService = await deleteScanService(
+      scanCenterId,
+      scanServiceId,
+    );
+
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: scanService,
+      data: await translateResponse(scanService, language),
     });
-  } catch (error) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
       message:
@@ -220,3 +227,4 @@ export async function deleteScanServiceController(
     });
   }
 }
+

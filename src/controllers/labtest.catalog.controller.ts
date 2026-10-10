@@ -9,10 +9,12 @@ import {
   updateLabTestCatalog,
 } from "../services/labtest.catalog.service";
 
-// =========================================================
-// CREATE LAB TEST CATALOG
-// =========================================================
+import {
+  getRequestedLanguage,
+  translateResponse,
+} from "../utils/translate.response";
 
+// CREATE LAB TEST CATALOG
 export async function createLabTestCatalogController(
   req: Request,
   res: Response,
@@ -47,10 +49,12 @@ export async function createLabTestCatalogController(
       preparationInstructions,
     });
 
+    const language = getRequestedLanguage(req);
+
     return res.status(201).json({
       status: "success",
       message: "Lab test catalog created successfully",
-      data: catalog,
+      data: await translateResponse(catalog, language),
     });
   } catch (error: any) {
     return res.status(400).json({
@@ -60,20 +64,18 @@ export async function createLabTestCatalogController(
   }
 }
 
-// =========================================================
 // GET ALL LAB TEST CATALOGS
-// =========================================================
-
 export async function getLabTestCatalogsController(
   req: Request,
   res: Response,
 ) {
   try {
     const catalogs = await getLabTestCatalogs();
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: catalogs,
+      data: await translateResponse(catalogs, language),
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -83,24 +85,20 @@ export async function getLabTestCatalogsController(
   }
 }
 
-// =========================================================
 // GET LAB TEST CATALOG BY ID
-// =========================================================
-
 export async function getLabTestCatalogByIdController(
   req: Request<{ testCatalogId: string }>,
   res: Response,
 ) {
   try {
     const { testCatalogId } = req.params;
+    const language = getRequestedLanguage(req);
 
-    const catalog = await getLabTestCatalogById(
-      testCatalogId,
-    );
+    const catalog = await getLabTestCatalogById(testCatalogId);
 
     return res.status(200).json({
       status: "success",
-      data: catalog,
+      data: await translateResponse(catalog, language),
     });
   } catch (error: any) {
     return res.status(404).json({
@@ -110,10 +108,7 @@ export async function getLabTestCatalogByIdController(
   }
 }
 
-// =========================================================
 // UPDATE LAB TEST CATALOG
-// =========================================================
-
 export async function updateLabTestCatalogController(
   req: Request<{ testCatalogId: string }>,
   res: Response,
@@ -132,24 +127,23 @@ export async function updateLabTestCatalogController(
       preparationInstructions,
     } = req.body;
 
-    const catalog = await updateLabTestCatalog(
-      testCatalogId,
-      {
-        code,
-        name,
-        description,
-        category,
-        status,
-        fastingRequirement,
-        fastingHours,
-        preparationInstructions,
-      },
-    );
+    const catalog = await updateLabTestCatalog(testCatalogId, {
+      code,
+      name,
+      description,
+      category,
+      status,
+      fastingRequirement,
+      fastingHours,
+      preparationInstructions,
+    });
+
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
       message: "Lab test catalog updated successfully",
-      data: catalog,
+      data: await translateResponse(catalog, language),
     });
   } catch (error: any) {
     return res.status(400).json({
@@ -159,10 +153,7 @@ export async function updateLabTestCatalogController(
   }
 }
 
-// =========================================================
 // DELETE LAB TEST CATALOG
-// =========================================================
-
 export async function deleteLabTestCatalogController(
   req: Request<{ testCatalogId: string }>,
   res: Response,

@@ -1,3 +1,4 @@
+
 import { Request, Response } from "express";
 
 import {
@@ -14,6 +15,11 @@ import {
   getEquipmentServicesByEquipment,
   getEquipmentServicesByScanService,
 } from "../services/equipment.service";
+
+import {
+  getRequestedLanguage,
+  translateResponse,
+} from "../utils/translate.response";
 
 export async function createEquipmentController(
   req: Request,
@@ -45,15 +51,20 @@ export async function createEquipmentController(
       status,
     });
 
+    const language = getRequestedLanguage(req);
+
     return res.status(201).json({
       status: "success",
       message: "Equipment created successfully",
-      data: equipment,
+      data: await translateResponse(equipment, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to create equipment",
     });
   }
 }
@@ -64,15 +75,19 @@ export async function getEquipmentsController(
 ) {
   try {
     const equipments = await getEquipments();
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: equipments,
+      data: await translateResponse(equipments, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(500).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch equipment",
     });
   }
 }
@@ -85,15 +100,19 @@ export async function getEquipmentsByScanCenterController(
     const { scanCenterId } = req.params;
 
     const equipments = await getEquipmentsByScanCenter(scanCenterId);
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: equipments,
+      data: await translateResponse(equipments, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch equipment for scan center",
     });
   }
 }
@@ -106,15 +125,19 @@ export async function getEquipmentByIdController(
     const { equipmentId } = req.params;
 
     const equipment = await getEquipmentById(equipmentId);
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: equipment,
+      data: await translateResponse(equipment, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(404).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Equipment not found",
     });
   }
 }
@@ -131,15 +154,20 @@ export async function updateEquipmentController(
       req.body,
     );
 
+    const language = getRequestedLanguage(req);
+
     return res.status(200).json({
       status: "success",
       message: "Equipment updated successfully",
-      data: equipment,
+      data: await translateResponse(equipment, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to update equipment",
     });
   }
 }
@@ -157,14 +185,16 @@ export async function deleteEquipmentController(
       status: "success",
       message: "Equipment deleted successfully",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(404).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to delete equipment",
     });
   }
 }
-
 
 export async function createEquipmentServiceController(
   req: Request,
@@ -185,15 +215,20 @@ export async function createEquipmentServiceController(
       scanServiceId,
     });
 
+    const language = getRequestedLanguage(req);
+
     return res.status(201).json({
       status: "success",
       message: "Equipment service mapping created successfully",
-      data: equipmentService,
+      data: await translateResponse(equipmentService, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to create equipment service mapping",
     });
   }
 }
@@ -204,15 +239,19 @@ export async function getEquipmentServicesController(
 ) {
   try {
     const equipmentServices = await getEquipmentServices();
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: equipmentServices,
+      data: await translateResponse(equipmentServices, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(500).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch equipment service mappings",
     });
   }
 }
@@ -227,14 +266,19 @@ export async function getEquipmentServicesByEquipmentController(
     const equipmentServices =
       await getEquipmentServicesByEquipment(equipmentId);
 
+    const language = getRequestedLanguage(req);
+
     return res.status(200).json({
       status: "success",
-      data: equipmentServices,
+      data: await translateResponse(equipmentServices, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch services for equipment",
     });
   }
 }
@@ -249,14 +293,19 @@ export async function getEquipmentServicesByScanServiceController(
     const equipmentServices =
       await getEquipmentServicesByScanService(scanServiceId);
 
+    const language = getRequestedLanguage(req);
+
     return res.status(200).json({
       status: "success",
-      data: equipmentServices,
+      data: await translateResponse(equipmentServices, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch equipment services for scan service",
     });
   }
 }
@@ -271,14 +320,19 @@ export async function getEquipmentServiceByIdController(
     const equipmentService =
       await getEquipmentServiceById(equipmentServiceId);
 
+    const language = getRequestedLanguage(req);
+
     return res.status(200).json({
       status: "success",
-      data: equipmentService,
+      data: await translateResponse(equipmentService, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(404).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Equipment service mapping not found",
     });
   }
 }
@@ -296,10 +350,14 @@ export async function deleteEquipmentServiceController(
       status: "success",
       message: "Equipment service mapping deleted successfully",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(404).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to delete equipment service mapping",
     });
   }
 }
+

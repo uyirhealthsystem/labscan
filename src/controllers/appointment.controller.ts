@@ -21,12 +21,18 @@ import {
   updateAppointmentTest,
   getAllAppointmentTests,
   getAllAppointmentServices,
-  completeAppointment
+  completeAppointment,
 } from "../services/appointment.service";
+
+import {
+  getRequestedLanguage,
+  translateResponse,
+} from "../utils/translate.response";
 
 // =========================================================
 // APPOINTMENT
 // =========================================================
+
 
 export async function createAppointmentController(
   req: Request,
@@ -34,7 +40,6 @@ export async function createAppointmentController(
 ) {
   try {
     const {
-      bookingId,
       patientId,
       labId,
       scanCenterId,
@@ -51,7 +56,6 @@ export async function createAppointmentController(
     } = req.body;
 
     if (
-      !bookingId ||
       !patientId ||
       !appointmentType ||
       !appointmentMode ||
@@ -62,12 +66,11 @@ export async function createAppointmentController(
       return res.status(400).json({
         status: "error",
         message:
-          "bookingId, patientId, appointmentType, appointmentMode, appointmentDate, startTime and endTime are required",
+          "patientId, appointmentType, appointmentMode, appointmentDate, startTime and endTime are required",
       });
     }
 
     const appointment = await createAppointment({
-      bookingId,
       patientId,
       labId,
       scanCenterId,
@@ -83,10 +86,12 @@ export async function createAppointmentController(
       services,
     });
 
+    const language = getRequestedLanguage(req);
+
     return res.status(201).json({
       status: "success",
       message: "Appointment created successfully",
-      data: appointment,
+      data: await translateResponse(appointment, language),
     });
   } catch (error: any) {
     return res.status(400).json({
@@ -96,16 +101,19 @@ export async function createAppointmentController(
   }
 }
 
+
+
 export async function getAppointmentsController(
   req: Request,
   res: Response,
 ) {
   try {
     const appointments = await getAppointments();
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: appointments,
+      data: await translateResponse(appointments, language),
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -122,11 +130,12 @@ export const completeAppointmentController = async (
   try {
     const appointmentId = req.params.appointmentId as string;
     const appointment = await completeAppointment(appointmentId);
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
       message: "Appointment completed successfully",
-      data: appointment,
+      data: await translateResponse(appointment, language),
     });
   } catch (error: any) {
     console.error("Complete appointment error:", error);
@@ -145,7 +154,6 @@ export const completeAppointmentController = async (
   }
 };
 
-
 // =========================================================
 // GET APPOINTMENTS BY LAB ID
 // =========================================================
@@ -156,12 +164,12 @@ export async function getAppointmentsByLabIdController(
 ) {
   try {
     const { labId } = req.params;
-
     const appointments = await getAppointmentsByLabId(labId);
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: appointments,
+      data: await translateResponse(appointments, language),
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -171,21 +179,18 @@ export async function getAppointmentsByLabIdController(
   }
 }
 
-
-
 export async function getAppointmentsByPatientController(
   req: Request<{ patientId: string }>,
   res: Response,
 ) {
   try {
     const { patientId } = req.params;
-
-    const appointments =
-      await getAppointmentsByPatient(patientId);
+    const appointments = await getAppointmentsByPatient(patientId);
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: appointments,
+      data: await translateResponse(appointments, language),
     });
   } catch (error: any) {
     return res.status(400).json({
@@ -201,13 +206,12 @@ export async function getAppointmentByIdController(
 ) {
   try {
     const { appointmentId } = req.params;
-
-    const appointment =
-      await getAppointmentById(appointmentId);
+    const appointment = await getAppointmentById(appointmentId);
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: appointment,
+      data: await translateResponse(appointment, language),
     });
   } catch (error: any) {
     return res.status(404).json({
@@ -223,16 +227,16 @@ export async function updateAppointmentController(
 ) {
   try {
     const { appointmentId } = req.params;
-
     const appointment = await updateAppointment(
       appointmentId,
       req.body,
     );
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
       message: "Appointment updated successfully",
-      data: appointment,
+      data: await translateResponse(appointment, language),
     });
   } catch (error: any) {
     return res.status(400).json({
@@ -248,7 +252,6 @@ export async function deleteAppointmentController(
 ) {
   try {
     const { appointmentId } = req.params;
-
     await deleteAppointment(appointmentId);
 
     return res.status(200).json({
@@ -272,31 +275,26 @@ export async function createAppointmentTestController(
   res: Response,
 ) {
   try {
-    const {
-      appointmentId,
-      labTestId,
-      status,
-    } = req.body;
+    const { appointmentId, labTestId, status } = req.body;
 
     if (!appointmentId || !labTestId) {
       return res.status(400).json({
         status: "error",
-        message:
-          "appointmentId and labTestId are required",
+        message: "appointmentId and labTestId are required",
       });
     }
 
-    const appointmentTest =
-      await createAppointmentTest({
-        appointmentId,
-        labTestId,
-        status,
-      });
+    const appointmentTest = await createAppointmentTest({
+      appointmentId,
+      labTestId,
+      status,
+    });
+    const language = getRequestedLanguage(req);
 
     return res.status(201).json({
       status: "success",
       message: "Appointment test added successfully",
-      data: appointmentTest,
+      data: await translateResponse(appointmentTest, language),
     });
   } catch (error: any) {
     return res.status(400).json({
@@ -311,12 +309,12 @@ export async function getAllAppointmentTestsController(
   res: Response,
 ): Promise<void> {
   try {
-    const appointmentTests =
-      await getAllAppointmentTests();
+    const appointmentTests = await getAllAppointmentTests();
+    const language = getRequestedLanguage(req);
 
     res.status(200).json({
       status: "success",
-      data: appointmentTests,
+      data: await translateResponse(appointmentTests, language),
     });
   } catch (error) {
     console.error(error);
@@ -337,13 +335,12 @@ export async function getAppointmentTestsController(
 ) {
   try {
     const { appointmentId } = req.params;
-
-    const tests =
-      await getAppointmentTests(appointmentId);
+    const tests = await getAppointmentTests(appointmentId);
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: tests,
+      data: await translateResponse(tests, language),
     });
   } catch (error: any) {
     return res.status(400).json({
@@ -359,15 +356,13 @@ export async function getAppointmentTestByIdController(
 ) {
   try {
     const { appointmentTestId } = req.params;
-
     const appointmentTest =
-      await getAppointmentTestById(
-        appointmentTestId,
-      );
+      await getAppointmentTestById(appointmentTestId);
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: appointmentTest,
+      data: await translateResponse(appointmentTest, language),
     });
   } catch (error: any) {
     return res.status(404).json({
@@ -383,17 +378,16 @@ export async function updateAppointmentTestController(
 ) {
   try {
     const { appointmentTestId } = req.params;
-
-    const appointmentTest =
-      await updateAppointmentTest(
-        appointmentTestId,
-        req.body,
-      );
+    const appointmentTest = await updateAppointmentTest(
+      appointmentTestId,
+      req.body,
+    );
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
       message: "Appointment test updated successfully",
-      data: appointmentTest,
+      data: await translateResponse(appointmentTest, language),
     });
   } catch (error: any) {
     return res.status(400).json({
@@ -409,7 +403,6 @@ export async function deleteAppointmentTestController(
 ) {
   try {
     const { appointmentTestId } = req.params;
-
     await deleteAppointmentTest(appointmentTestId);
 
     return res.status(200).json({
@@ -443,23 +436,22 @@ export async function createAppointmentServiceController(
     if (!appointmentId || !scanServiceId) {
       return res.status(400).json({
         status: "error",
-        message:
-          "appointmentId and scanServiceId are required",
+        message: "appointmentId and scanServiceId are required",
       });
     }
 
-    const appointmentService =
-      await createAppointmentService({
-        appointmentId,
-        scanServiceId,
-        equipmentId,
-        status,
-      });
+    const appointmentService = await createAppointmentService({
+      appointmentId,
+      scanServiceId,
+      equipmentId,
+      status,
+    });
+    const language = getRequestedLanguage(req);
 
     return res.status(201).json({
       status: "success",
       message: "Appointment service added successfully",
-      data: appointmentService,
+      data: await translateResponse(appointmentService, language),
     });
   } catch (error: any) {
     return res.status(400).json({
@@ -474,12 +466,12 @@ export async function getAllAppointmentServicesController(
   res: Response,
 ): Promise<void> {
   try {
-    const appointmentServices =
-      await getAllAppointmentServices();
+    const appointmentServices = await getAllAppointmentServices();
+    const language = getRequestedLanguage(req);
 
     res.status(200).json({
       status: "success",
-      data: appointmentServices,
+      data: await translateResponse(appointmentServices, language),
     });
   } catch (error) {
     console.error(error);
@@ -500,13 +492,12 @@ export async function getAppointmentServicesController(
 ) {
   try {
     const { appointmentId } = req.params;
-
-    const services =
-      await getAppointmentServices(appointmentId);
+    const services = await getAppointmentServices(appointmentId);
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: services,
+      data: await translateResponse(services, language),
     });
   } catch (error: any) {
     return res.status(400).json({
@@ -522,15 +513,13 @@ export async function getAppointmentServiceByIdController(
 ) {
   try {
     const { appointmentServiceId } = req.params;
-
     const appointmentService =
-      await getAppointmentServiceById(
-        appointmentServiceId,
-      );
+      await getAppointmentServiceById(appointmentServiceId);
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: appointmentService,
+      data: await translateResponse(appointmentService, language),
     });
   } catch (error: any) {
     return res.status(404).json({
@@ -546,17 +535,16 @@ export async function updateAppointmentServiceController(
 ) {
   try {
     const { appointmentServiceId } = req.params;
-
-    const appointmentService =
-      await updateAppointmentService(
-        appointmentServiceId,
-        req.body,
-      );
+    const appointmentService = await updateAppointmentService(
+      appointmentServiceId,
+      req.body,
+    );
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
       message: "Appointment service updated successfully",
-      data: appointmentService,
+      data: await translateResponse(appointmentService, language),
     });
   } catch (error: any) {
     return res.status(400).json({
@@ -572,10 +560,7 @@ export async function deleteAppointmentServiceController(
 ) {
   try {
     const { appointmentServiceId } = req.params;
-
-    await deleteAppointmentService(
-      appointmentServiceId,
-    );
+    await deleteAppointmentService(appointmentServiceId);
 
     return res.status(200).json({
       status: "success",

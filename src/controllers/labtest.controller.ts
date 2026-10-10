@@ -1,4 +1,6 @@
+
 import { Request, Response } from "express";
+
 import {
   createLabTest,
   deleteLabTest,
@@ -7,11 +9,12 @@ import {
   updateLabTest,
 } from "../services/labtest.service";
 
+import {
+  getRequestedLanguage,
+  translateResponse,
+} from "../utils/translate.response";
 
-// =========================================================
 // CREATE LAB TEST
-// =========================================================
-
 export async function createLabTestController(
   req: Request,
   res: Response,
@@ -25,7 +28,6 @@ export async function createLabTestController(
       status,
     } = req.body;
 
-    // Required field validation
     if (!labId) {
       return res.status(400).json({
         status: "error",
@@ -48,9 +50,11 @@ export async function createLabTestController(
       status,
     });
 
+    const language = getRequestedLanguage(req);
+
     return res.status(201).json({
       status: "success",
-      data: labTest,
+      data: await translateResponse(labTest, language),
     });
   } catch (error) {
     return res.status(400).json({
@@ -63,23 +67,20 @@ export async function createLabTestController(
   }
 }
 
-
-// =========================================================
-// GET ALL LAB TESTS
-// =========================================================
-
+// GET ALL LAB TESTS FOR A LAB
 export async function getLabTestsController(
   req: Request<{ labId: string }>,
   res: Response,
 ) {
   try {
     const { labId } = req.params;
+    const language = getRequestedLanguage(req);
 
     const labTests = await getLabTests(labId);
 
     return res.status(200).json({
       status: "success",
-      data: labTests,
+      data: await translateResponse(labTests, language),
     });
   } catch (error) {
     return res.status(404).json({
@@ -92,32 +93,20 @@ export async function getLabTestsController(
   }
 }
 
-
-// =========================================================
 // GET SINGLE LAB TEST
-// =========================================================
-
 export async function getLabTestByIdController(
-  req: Request<{
-    labId: string;
-    labTestId: string;
-  }>,
+  req: Request<{ labId: string; labTestId: string }>,
   res: Response,
 ) {
   try {
-    const {
-      labId,
-      labTestId,
-    } = req.params;
+    const { labId, labTestId } = req.params;
+    const language = getRequestedLanguage(req);
 
-    const labTest = await getLabTestById(
-      labId,
-      labTestId,
-    );
+    const labTest = await getLabTestById(labId, labTestId);
 
     return res.status(200).json({
       status: "success",
-      data: labTest,
+      data: await translateResponse(labTest, language),
     });
   } catch (error) {
     return res.status(404).json({
@@ -130,43 +119,27 @@ export async function getLabTestByIdController(
   }
 }
 
-
-// =========================================================
 // UPDATE LAB TEST
-// =========================================================
-
 export async function updateLabTestController(
-  req: Request<{
-    labId: string;
-    labTestId: string;
-  }>,
+  req: Request<{ labId: string; labTestId: string }>,
   res: Response,
 ) {
   try {
-    const {
-      labId,
-      labTestId,
-    } = req.params;
+    const { labId, labTestId } = req.params;
 
-    const {
+    const { price, turnaroundTime, status } = req.body;
+
+    const labTest = await updateLabTest(labId, labTestId, {
       price,
       turnaroundTime,
       status,
-    } = req.body;
+    });
 
-    const labTest = await updateLabTest(
-      labId,
-      labTestId,
-      {
-        price,
-        turnaroundTime,
-        status,
-      },
-    );
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: labTest,
+      data: await translateResponse(labTest, language),
     });
   } catch (error) {
     return res.status(400).json({
@@ -179,28 +152,15 @@ export async function updateLabTestController(
   }
 }
 
-
-// =========================================================
 // DELETE LAB TEST
-// =========================================================
-
 export async function deleteLabTestController(
-  req: Request<{
-    labId: string;
-    labTestId: string;
-  }>,
+  req: Request<{ labId: string; labTestId: string }>,
   res: Response,
 ) {
   try {
-    const {
-      labId,
-      labTestId,
-    } = req.params;
+    const { labId, labTestId } = req.params;
 
-    const labTest = await deleteLabTest(
-      labId,
-      labTestId,
-    );
+    const labTest = await deleteLabTest(labId, labTestId);
 
     return res.status(200).json({
       status: "success",

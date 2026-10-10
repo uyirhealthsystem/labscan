@@ -25,6 +25,11 @@ import {
   deleteEarning,
 } from "../services/report.service";
 
+import {
+  getRequestedLanguage,
+  translateResponse,
+} from "../utils/translate.response";
+
 // =========================================================
 // REPORT CONTROLLERS
 // =========================================================
@@ -35,10 +40,11 @@ export async function createReportController(
 ): Promise<void> {
   try {
     const report = await createReport(req.body);
+    const language = getRequestedLanguage(req);
 
     res.status(201).json({
       status: "success",
-      data: report,
+      data: await translateResponse(report, language),
     });
   } catch (error) {
     res.status(400).json({
@@ -57,10 +63,11 @@ export async function getReportsController(
 ): Promise<void> {
   try {
     const reports = await getReports();
+    const language = getRequestedLanguage(req);
 
     res.status(200).json({
       status: "success",
-      data: reports,
+      data: await translateResponse(reports, language),
     });
   } catch (error) {
     res.status(500).json({
@@ -69,10 +76,6 @@ export async function getReportsController(
     });
   }
 }
-
-
-
-
 
 export async function uploadReportController(
   req: Request,
@@ -105,10 +108,12 @@ export async function uploadReportController(
       size: file.size,
     });
 
+    const language = getRequestedLanguage(req);
+
     res.status(200).json({
       status: "success",
       message: "Report uploaded successfully",
-      data: result,
+      data: await translateResponse(result, language),
     });
   } catch (error) {
     res.status(400).json({
@@ -127,12 +132,12 @@ export async function getReportByIdController(
 ): Promise<void> {
   try {
     const reportId = String(req.params.reportId);
-
     const report = await getReportById(reportId);
+    const language = getRequestedLanguage(req);
 
     res.status(200).json({
       status: "success",
-      data: report,
+      data: await translateResponse(report, language),
     });
   } catch (error) {
     res.status(404).json({
@@ -152,12 +157,12 @@ export async function getReportByAppointmentController(
   try {
     const appointmentId = String(req.params.appointmentId);
 
-    const report =
-      await getReportByAppointment(appointmentId);
+    const report = await getReportByAppointment(appointmentId);
+    const language = getRequestedLanguage(req);
 
     res.status(200).json({
       status: "success",
-      data: report,
+      data: await translateResponse(report, language),
     });
   } catch (error) {
     res.status(404).json({
@@ -177,14 +182,12 @@ export async function updateReportController(
   try {
     const reportId = String(req.params.reportId);
 
-    const report = await updateReport(
-      reportId,
-      req.body,
-    );
+    const report = await updateReport(reportId, req.body);
+    const language = getRequestedLanguage(req);
 
     res.status(200).json({
       status: "success",
-      data: report,
+      data: await translateResponse(report, language),
     });
   } catch (error) {
     res.status(400).json({
@@ -203,12 +206,12 @@ export async function deleteReportController(
 ): Promise<void> {
   try {
     const reportId = String(req.params.reportId);
-
     const report = await deleteReport(reportId);
+    const language = getRequestedLanguage(req);
 
     res.status(200).json({
       status: "success",
-      data: report,
+      data: await translateResponse(report, language),
     });
   } catch (error) {
     res.status(404).json({
@@ -221,7 +224,6 @@ export async function deleteReportController(
   }
 }
 
-
 // =========================================================
 // REPORT FILE CONTROLLERS
 // =========================================================
@@ -231,12 +233,12 @@ export async function createReportFileController(
   res: Response,
 ): Promise<void> {
   try {
-    const reportFile =
-      await createReportFile(req.body);
+    const reportFile = await createReportFile(req.body);
+    const language = getRequestedLanguage(req);
 
     res.status(201).json({
       status: "success",
-      data: reportFile,
+      data: await translateResponse(reportFile, language),
     });
   } catch (error) {
     res.status(400).json({
@@ -255,12 +257,12 @@ export async function getReportFilesController(
 ): Promise<void> {
   try {
     const reportId = String(req.params.reportId);
-
     const files = await getReportFiles(reportId);
+    const language = getRequestedLanguage(req);
 
     res.status(200).json({
       status: "success",
-      data: files,
+      data: await translateResponse(files, language),
     });
   } catch (error) {
     res.status(404).json({
@@ -278,15 +280,14 @@ export async function getReportFileByIdController(
   res: Response,
 ): Promise<void> {
   try {
-    const reportFileId =
-      String(req.params.reportFileId);
+    const reportFileId = String(req.params.reportFileId);
 
-    const file =
-      await getReportFileById(reportFileId);
+    const file = await getReportFileById(reportFileId);
+    const language = getRequestedLanguage(req);
 
     res.status(200).json({
       status: "success",
-      data: file,
+      data: await translateResponse(file, language),
     });
   } catch (error) {
     res.status(404).json({
@@ -304,17 +305,14 @@ export async function updateReportFileController(
   res: Response,
 ): Promise<void> {
   try {
-    const reportFileId =
-      String(req.params.reportFileId);
+    const reportFileId = String(req.params.reportFileId);
 
-    const file = await updateReportFile(
-      reportFileId,
-      req.body,
-    );
+    const file = await updateReportFile(reportFileId, req.body);
+    const language = getRequestedLanguage(req);
 
     res.status(200).json({
       status: "success",
-      data: file,
+      data: await translateResponse(file, language),
     });
   } catch (error) {
     res.status(400).json({
@@ -332,15 +330,14 @@ export async function deleteReportFileController(
   res: Response,
 ): Promise<void> {
   try {
-    const reportFileId =
-      String(req.params.reportFileId);
+    const reportFileId = String(req.params.reportFileId);
 
-    const file =
-      await deleteReportFile(reportFileId);
+    const file = await deleteReportFile(reportFileId);
+    const language = getRequestedLanguage(req);
 
     res.status(200).json({
       status: "success",
-      data: file,
+      data: await translateResponse(file, language),
     });
   } catch (error) {
     res.status(404).json({
@@ -353,7 +350,6 @@ export async function deleteReportFileController(
   }
 }
 
-
 // =========================================================
 // EARNING CONTROLLERS
 // =========================================================
@@ -364,10 +360,11 @@ export async function createEarningController(
 ): Promise<void> {
   try {
     const earning = await createEarning(req.body);
+    const language = getRequestedLanguage(req);
 
     res.status(201).json({
       status: "success",
-      data: earning,
+      data: await translateResponse(earning, language),
     });
   } catch (error) {
     res.status(400).json({
@@ -386,10 +383,11 @@ export async function getEarningsController(
 ): Promise<void> {
   try {
     const earnings = await getEarnings();
+    const language = getRequestedLanguage(req);
 
     res.status(200).json({
       status: "success",
-      data: earnings,
+      data: await translateResponse(earnings, language),
     });
   } catch (error) {
     res.status(500).json({
@@ -402,20 +400,24 @@ export async function getEarningsController(
 export const getEarningsSummaryController = async (
   req: Request,
   res: Response,
-) => {
+): Promise<void> => {
   try {
     const summary = await getEarningsSummary();
+    const language = getRequestedLanguage(req);
 
-    return res.status(200).json({
+    res.status(200).json({
       status: "success",
-      data: summary,
+      data: await translateResponse(summary, language),
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Get earnings summary error:", error);
 
-    return res.status(500).json({
+    res.status(500).json({
       status: "error",
-      message: error.message || "Failed to get earnings summary",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to get earnings summary",
     });
   }
 };
@@ -425,15 +427,14 @@ export async function getEarningByIdController(
   res: Response,
 ): Promise<void> {
   try {
-    const earningId =
-      String(req.params.earningId);
+    const earningId = String(req.params.earningId);
 
-    const earning =
-      await getEarningById(earningId);
+    const earning = await getEarningById(earningId);
+    const language = getRequestedLanguage(req);
 
     res.status(200).json({
       status: "success",
-      data: earning,
+      data: await translateResponse(earning, language),
     });
   } catch (error) {
     res.status(404).json({
@@ -451,15 +452,14 @@ export async function getEarningByAppointmentController(
   res: Response,
 ): Promise<void> {
   try {
-    const appointmentId =
-      String(req.params.appointmentId);
+    const appointmentId = String(req.params.appointmentId);
 
-    const earning =
-      await getEarningByAppointment(appointmentId);
+    const earning = await getEarningByAppointment(appointmentId);
+    const language = getRequestedLanguage(req);
 
     res.status(200).json({
       status: "success",
-      data: earning,
+      data: await translateResponse(earning, language),
     });
   } catch (error) {
     res.status(404).json({
@@ -477,17 +477,14 @@ export async function updateEarningController(
   res: Response,
 ): Promise<void> {
   try {
-    const earningId =
-      String(req.params.earningId);
+    const earningId = String(req.params.earningId);
 
-    const earning = await updateEarning(
-      earningId,
-      req.body,
-    );
+    const earning = await updateEarning(earningId, req.body);
+    const language = getRequestedLanguage(req);
 
     res.status(200).json({
       status: "success",
-      data: earning,
+      data: await translateResponse(earning, language),
     });
   } catch (error) {
     res.status(400).json({
@@ -505,15 +502,14 @@ export async function deleteEarningController(
   res: Response,
 ): Promise<void> {
   try {
-    const earningId =
-      String(req.params.earningId);
+    const earningId = String(req.params.earningId);
 
-    const earning =
-      await deleteEarning(earningId);
+    const earning = await deleteEarning(earningId);
+    const language = getRequestedLanguage(req);
 
     res.status(200).json({
       status: "success",
-      data: earning,
+      data: await translateResponse(earning, language),
     });
   } catch (error) {
     res.status(404).json({
@@ -525,5 +521,4 @@ export async function deleteEarningController(
     });
   }
 }
-
 

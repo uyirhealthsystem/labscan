@@ -1,3 +1,4 @@
+
 import { Request, Response } from "express";
 
 import {
@@ -5,25 +6,33 @@ import {
   getSupportTickets,
 } from "../services/support.service";
 
+import {
+  getRequestedLanguage,
+  translateResponse,
+} from "../utils/translate.response";
+
 export const createSupportTicketController = async (
   req: Request,
   res: Response,
 ) => {
   try {
     const ticket = await createSupportTicket(req.body);
+    const language = getRequestedLanguage(req);
 
     return res.status(201).json({
       status: "success",
       message: "Support ticket created successfully",
-      data: ticket,
+      data: await translateResponse(ticket, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Create support ticket error:", error);
 
     return res.status(400).json({
       status: "error",
       message:
-        error.message || "Failed to create support ticket",
+        error instanceof Error
+          ? error.message
+          : "Failed to create support ticket",
     });
   }
 };
@@ -43,17 +52,22 @@ export const getSupportTicketsController = async (
       scanCenterId,
     );
 
+    const language = getRequestedLanguage(req);
+
     return res.status(200).json({
       status: "success",
-      data: tickets,
+      data: await translateResponse(tickets, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Get support tickets error:", error);
 
     return res.status(400).json({
       status: "error",
       message:
-        error.message || "Failed to get support tickets",
+        error instanceof Error
+          ? error.message
+          : "Failed to get support tickets",
     });
   }
 };
+

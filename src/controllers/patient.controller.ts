@@ -1,3 +1,4 @@
+
 import { Request, Response } from "express";
 
 import {
@@ -7,6 +8,15 @@ import {
   getPatients,
   updatePatient,
 } from "../services/patient.service";
+
+import {
+  getRequestedLanguage,
+  translateResponse,
+} from "../utils/translate.response";
+
+// =========================================================
+// CREATE PATIENT
+// =========================================================
 
 export async function createPatientController(
   req: Request,
@@ -34,18 +44,27 @@ export async function createPatientController(
       phone,
     });
 
+    const language = getRequestedLanguage(req);
+
     return res.status(201).json({
       status: "success",
       message: "Patient created successfully",
-      data: patient,
+      data: await translateResponse(patient, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to create patient",
     });
   }
 }
+
+// =========================================================
+// GET ALL PATIENTS
+// =========================================================
 
 export async function getPatientsController(
   req: Request,
@@ -53,18 +72,26 @@ export async function getPatientsController(
 ) {
   try {
     const patients = await getPatients();
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: patients,
+      data: await translateResponse(patients, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(500).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch patients",
     });
   }
 }
+
+// =========================================================
+// GET PATIENT BY ID
+// =========================================================
 
 export async function getPatientByIdController(
   req: Request<{ patientId: string }>,
@@ -74,18 +101,26 @@ export async function getPatientByIdController(
     const { patientId } = req.params;
 
     const patient = await getPatientById(patientId);
+    const language = getRequestedLanguage(req);
 
     return res.status(200).json({
       status: "success",
-      data: patient,
+      data: await translateResponse(patient, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(404).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Patient not found",
     });
   }
 }
+
+// =========================================================
+// UPDATE PATIENT
+// =========================================================
 
 export async function updatePatientController(
   req: Request<{ patientId: string }>,
@@ -99,18 +134,27 @@ export async function updatePatientController(
       req.body,
     );
 
+    const language = getRequestedLanguage(req);
+
     return res.status(200).json({
       status: "success",
       message: "Patient updated successfully",
-      data: patient,
+      data: await translateResponse(patient, language),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(400).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to update patient",
     });
   }
 }
+
+// =========================================================
+// DELETE PATIENT
+// =========================================================
 
 export async function deletePatientController(
   req: Request<{ patientId: string }>,
@@ -125,10 +169,14 @@ export async function deletePatientController(
       status: "success",
       message: "Patient deleted successfully",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return res.status(404).json({
       status: "error",
-      message: error.message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to delete patient",
     });
   }
 }
+
