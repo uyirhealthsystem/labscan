@@ -34,8 +34,14 @@ ln -sfn "$ROOT/shared/uploads" "$REL/uploads"
 echo "==> fetching Prisma engine for this host"
 npm rebuild @prisma/engines
 
+# Migrate over a direct connection: through Neon's pooler (PgBouncer) the
+# session-level advisory lock Prisma takes is left held on a pooled backend
+# connection, and the next deploy times out waiting for it (P1002).
+# Set DIRECT_URL in the env file, or the "-pooler" host suffix is dropped.
+MIGRATE_URL=${DIRECT_URL:-${DATABASE_URL/-pooler./.}}
+
 echo "==> applying database migrations"
-npx prisma migrate deploy --config prisma7.config.ts
+DATABASE_URL="$MIGRATE_URL" npx prisma migrate deploy --config prisma7.config.ts
 
 echo "==> switching 'current' symlink -> $TS"
 ln -sfn "$REL" "$ROOT/current"
