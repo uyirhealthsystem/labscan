@@ -1,7 +1,8 @@
 
 import { Request, Response } from "express";
 import { unlink } from "node:fs/promises";
-
+import { apiError } from '../utils/apiError';
+import { asyncHandler } from "../utils/asyncHandler";
 import {
   createSample,
   getSamples,
@@ -15,6 +16,8 @@ import {
   verifyCollectorCollectionOtp,
   uploadCollectorSampleEvidence,
   updateCollectorSampleStatus,
+    generateSampleHandoverOtp,
+  verifySampleHandoverOtp,
 } from "../services/sample.service";
 
 import {
@@ -144,6 +147,56 @@ export const getSamplesByAppointmentTestController = async (
     });
   }
 };
+
+
+export const generateSampleHandoverOtpController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const labUserId = req.headers["x-user-id"];
+
+    if (typeof labUserId !== "string" || !labUserId) {
+      throw new apiError(401, "Authenticated lab user is required");
+    }
+
+    const result = await generateSampleHandoverOtp(
+      req.params.sampleId as string,
+      labUserId,
+    );
+
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result,
+    });
+  },
+);
+
+export const verifySampleHandoverOtpController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.headers["x-user-id"];
+    const { otp } = req.body;
+
+    if (typeof userId !== "string" || !userId) {
+      throw new apiError(401, "Authenticated collector is required");
+    }
+
+    if (typeof otp !== "string" || !/^\d{6}$/.test(otp)) {
+      throw new apiError(400, "A valid six-digit OTP is required");
+    }
+
+    const result = await verifySampleHandoverOtp(
+      req.params.sampleId as string,
+      otp,
+      userId,
+    );
+
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result,
+    });
+  },
+);
+
 
 // =========================================================
 // GET SAMPLE BY BARCODE

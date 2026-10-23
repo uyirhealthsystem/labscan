@@ -537,6 +537,259 @@ export const getSampleByBarcode = async (
   return sample;
 };
 
+
+export async function generateSampleHandoverOtp(
+  sampleId: string,
+  labUserId: string,
+) {
+  const sample = await prisma.sample.findUnique({
+    where: { sampleId },
+    include: {
+      appointmentTest: {
+        include: {
+          appointment: {
+            include: { lab: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!sample) {
+    throw new Error("Sample not found");
+  }
+
+  const lab = sample.appointmentTest.appointment.lab;
+
+  if (!lab || lab.labUserId !== labUserId) {
+    throw new Error("This sample does not belong to your lab");
+  }
+
+  if (sample.status !== "IN_TRANSIT") {
+    throw new Error(
+      "Handover OTP can only be generated for a sample in transit",
+    );
+  }
+
+  const otp = generateOtp();
+  const expiresAt = new Date(
+    Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000,
+  );
+
+  const verification = await prisma.$transaction(async (tx) => {
+    await tx.sampleOtpVerification.updateMany({
+      where: {
+        sampleId,
+        purpose: "SAMPLE_HANDOVER",
+        verified: false,
+      },
+      data: {
+        expiresAt: new Date(),
+      },
+    });
+
+    return tx.sampleOtpVerification.create({
+      data: {
+        sampleId,
+        purpose: "SAMPLE_HANDOVER",
+        otpHash: hashOtp(otp),
+        expiresAt,
+      },
+    });
+  });
+
+  return {
+    verificationId: verification.verificationId,
+    sampleId,
+    purpose: verification.purpose,
+    expiresAt: verification.expiresAt,
+    ...(process.env.NODE_ENV !== "production" && {
+      debugOtp: otp,
+    }),
+    message: "Sample handover OTP generated successfully",
+  };
+}
+
+export async function verifySampleHandoverOtp(
+  sampleId: string,
+  otp: string,
+  userId: string,
+) {
+  const collector = await prisma.collector.findUnique({
+    where: { userId },
+    select: {
+      collectorId: true,
+      status: true,
+    },
+  });
+
+  if (!collector) {
+    throw new Error("Collector not found for this user");
+  }
+
+  if (collector.status !== "ACTIVE") {
+    throw new Error("Collector account is inactive");
+  }
+
+  const sample = await prisma.sample.findUnique({
+    where: { sampleId },
+    include: {
+      homeCollection: {
+        include: {
+          collectorAssignment: true,
+        },
+      },
+    },
+  });
+
+  if (!sample) {
+    throw new Error("Sample not found");
+  }
+
+  const homeCollection = sample.homeCollection;
+  const assignment = homeCollection?.collectorAssignment;
+
+  if (!homeCollection || !assignment) {
+    throw new Error("Sample has no collector assignment");
+  }
+
+  if (assignment.collectorId !== collector.collectorId) {
+    throw new Error("This sample is not assigned to you");
+  }
+
+  if (assignment.status !== "ACCEPTED") {
+    throw new Error("You must have an accepted assignment");
+  }
+
+  if (sample.status !== "IN_TRANSIT") {
+    throw new Error("Sample must be in transit for handover");
+  }
+
+  const verification = await prisma.sampleOtpVerification.findFirst({
+    where: {
+      sampleId,
+      purpose: "SAMPLE_HANDOVER",
+    },
+    orderBy: {
+      generatedAt: "desc",
+    },
+  });
+
+  if (!verification) {
+    throw new Error("Handover OTP has not been generated");
+  }
+
+  if (verification.verified) {
+    throw new Error("Handover OTP has already been used");
+  }
+
+  if (verification.expiresAt <= new Date()) {
+    throw new Error("Handover OTP has expired");
+  }
+
+  if (verification.attempts >= MAX_OTP_ATTEMPTS) {
+    throw new Error("Maximum OTP attempts exceeded");
+  }
+
+  if (hashOtp(otp) !== verification.otpHash) {
+    // Keep this write outside a transaction that throws,
+    // otherwise the failed-attempt increment would roll back.
+    await prisma.sampleOtpVerification.update({
+      where: {
+        verificationId: verification.verificationId,
+      },
+      data: {
+        attempts: { increment: 1 },
+      },
+    });
+
+    throw new Error("Invalid handover OTP");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    // Recheck the OTP and sample inside the transaction to reduce
+    // the chance of processing the same handover more than once.
+    const currentOtp = await tx.sampleOtpVerification.findUnique({
+      where: {
+        verificationId: verification.verificationId,
+      },
+    });
+
+    const currentSample = await tx.sample.findUnique({
+      where: { sampleId },
+    });
+
+    if (
+      !currentOtp ||
+      currentOtp.verified ||
+      currentOtp.expiresAt <= new Date() ||
+      currentOtp.attempts >= MAX_OTP_ATTEMPTS
+    ) {
+      throw new Error("Handover OTP is no longer valid");
+    }
+
+    if (!currentSample || currentSample.status !== "IN_TRANSIT") {
+      throw new Error("Sample is no longer in transit");
+    }
+
+    await tx.sampleOtpVerification.update({
+      where: {
+        verificationId: currentOtp.verificationId,
+      },
+      data: {
+        verified: true,
+        verifiedAt: new Date(),
+      },
+    });
+
+    await tx.sample.update({
+      where: { sampleId },
+      data: {
+        status: "RECEIVED",
+        receivedAt: new Date(),
+      },
+    });
+
+    await tx.sampleTracking.create({
+      data: {
+        sampleId,
+        status: "RECEIVED_AT_LAB",
+        notes: "Lab handover OTP verified",
+      },
+    });
+
+    await tx.homeCollection.update({
+      where: { homeCollectionId: homeCollection.homeCollectionId },
+      data: { status: "IN_LAB" },
+    });
+
+    await tx.homeCollectionTracking.create({
+      data: {
+        homeCollectionId: homeCollection.homeCollectionId,
+        status: "IN_LAB",
+        notes: "Sample handover verified at lab",
+      },
+    });
+
+    await tx.collectorAssignment.update({
+      where: {
+        collectorAssignmentId: assignment.collectorAssignmentId,
+      },
+      data: { status: "COMPLETED" },
+    });
+
+    return {
+      sampleId,
+      status: "RECEIVED",
+      homeCollectionId: homeCollection.homeCollectionId,
+      homeCollectionStatus: "IN_LAB",
+      assignmentStatus: "COMPLETED",
+      message: "Sample handed over to the lab successfully",
+    };
+  });
+}
+
+
 // =========================================================
 // UPDATE SAMPLE
 // =========================================================

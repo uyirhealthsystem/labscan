@@ -10,6 +10,7 @@ import {
   getCollectorAssignmentByIdController,
   getCollectorAssignmentsController,
   getCollectorByIdController,
+  getMyCollectorProfileController,
   getCollectorsByLabController,
   getCollectorsController,
   getMyCollectorBookingsController,
@@ -24,7 +25,9 @@ import {
   acceptMyCollectorAssignmentController,
   rejectMyCollectorAssignmentController,
   getHomeCollectionSummaryController,
-  getHomeCollectionHistoryController
+  getHomeCollectionHistoryController,
+  getMyCollectorHistoryController,
+  getMyCollectorDashboardController
 } from "../controllers/homecollection.controller";
 
 const router = Router();
@@ -86,8 +89,23 @@ router.get(
 );
 
 router.get(
+  "/collectors/me",
+  getMyCollectorProfileController,
+);
+
+router.get(
   "/collectors/me/bookings",
   getMyCollectorBookingsController,
+);
+
+router.get(
+  "/collectors/me/dashboard",
+  getMyCollectorDashboardController,
+);
+
+router.get(
+  "/collectors/me/history",
+  getMyCollectorHistoryController,
 );
 
 router.get(

@@ -437,6 +437,189 @@ export async function getCollectorById(collectorId: string) {
   return collector;
 }
 
+export async function getMyCollectorProfile(userId: string) {
+  const collector = await prisma.collector.findUnique({
+    where: {
+      userId,
+    },
+    select: {
+      collectorId: true,
+      userId: true,
+      name: true,
+      phone: true,
+      role: true,
+      qualification: true,
+      qualificationNumber: true,
+      qualificationProofUrl: true,
+      qualificationStatus: true,
+      status: true,
+      labId: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  if (!collector) {
+    throw new Error(
+      "Collector profile not found for the logged-in user",
+    );
+  }
+
+  return collector;
+}
+
+
+export async function getMyCollectorDashboard(userId: string) {
+  const collector = await prisma.collector.findUnique({
+    where: { userId },
+    select: {
+      collectorId: true,
+      name: true,
+      status: true,
+      qualificationStatus: true,
+    },
+  });
+
+  if (!collector) {
+    throw new Error("Collector not found for this user");
+  }
+
+  if (collector.status !== "ACTIVE") {
+    throw new Error("Collector account is inactive");
+  }
+
+  const collectorId = collector.collectorId;
+
+  const [
+    assigned,
+    accepted,
+    completed,
+    rejected,
+    cancelled,
+    activeCollections,
+    completedCollections,
+  ] = await Promise.all([
+    prisma.collectorAssignment.count({
+      where: { collectorId, status: "ASSIGNED" },
+    }),
+    prisma.collectorAssignment.count({
+      where: { collectorId, status: "ACCEPTED" },
+    }),
+    prisma.collectorAssignment.count({
+      where: { collectorId, status: "COMPLETED" },
+    }),
+    prisma.collectorAssignment.count({
+      where: { collectorId, status: "REJECTED" },
+    }),
+    prisma.collectorAssignment.count({
+      where: { collectorId, status: "CANCELLED" },
+    }),
+    prisma.collectorAssignment.count({
+      where: {
+        collectorId,
+        status: { in: ["ASSIGNED", "ACCEPTED"] },
+        homeCollection: {
+          status: {
+            in: ["ASSIGNED", "EN_ROUTE", "SAMPLE_COLLECTED"],
+          },
+        },
+      },
+    }),
+    prisma.collectorAssignment.count({
+      where: {
+        collectorId,
+        homeCollection: { status: "COMPLETED" },
+      },
+    }),
+  ]);
+
+  return {
+    collector,
+    bookings: {
+      assigned,
+      accepted,
+      completed,
+      rejected,
+      cancelled,
+      total:
+        assigned + accepted + completed + rejected + cancelled,
+    },
+    collections: {
+      active: activeCollections,
+      completed: completedCollections,
+    },
+    earnings: {
+      available: false,
+      message:
+        "Collector-specific earnings are not linked in the current schema.",
+    },
+  };
+}
+
+export async function getMyCollectorHistory(userId: string) {
+  const collector = await prisma.collector.findUnique({
+    where: { userId },
+    select: {
+      collectorId: true,
+      name: true,
+      status: true,
+    },
+  });
+
+  if (!collector) {
+    throw new Error("Collector not found for this user");
+  }
+
+  if (collector.status !== "ACTIVE") {
+    throw new Error("Collector account is inactive");
+  }
+
+  const assignments = await prisma.collectorAssignment.findMany({
+    where: {
+      collectorId: collector.collectorId,
+    },
+    include: {
+      homeCollection: {
+        include: {
+          appointment: {
+            include: {
+              patient: true,
+              tests: {
+                include: {
+                  labTest: {
+                    include: { testCatalog: true },
+                  },
+                  samples: true,
+                },
+              },
+            },
+          },
+          samples: {
+            include: {
+              trackingEvents: {
+                orderBy: { createdAt: "asc" },
+              },
+              evidence: true,
+            },
+          },
+          trackingEvents: {
+            orderBy: { createdAt: "asc" },
+          },
+        },
+      },
+    },
+    orderBy: {
+      assignedAt: "desc",
+    },
+  });
+
+  return {
+    collector,
+    total: assignments.length,
+    assignments,
+  };
+}
+
 export async function updateCollector(
   collectorId: string,
   data: UpdateCollectorInput,

@@ -1,6 +1,7 @@
 
 import { Request, Response } from "express";
-
+import { apiError } from '../utils/apiError';
+import { asyncHandler } from "../utils/asyncHandler";
 import {
   createCollector,
   createCollectorAssignment,
@@ -11,6 +12,7 @@ import {
   getCollectorAssignmentById,
   getCollectorAssignments,
   getCollectorById,
+  getMyCollectorProfile,
   getCollectors,
   getCollectorsByLab,
   getHomeCollectionByAppointmentId,
@@ -26,6 +28,8 @@ import {
   rejectMyCollectorAssignment,
   getHomeCollectionSummary,
   getHomeCollectionHistory,
+  getMyCollectorDashboard,
+  getMyCollectorHistory,
 } from "../services/homecollection.service";
 
 import {
@@ -190,6 +194,45 @@ export async function updateHomeCollectionController(
   }
 }
 
+
+
+
+export const getMyCollectorDashboardController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.headers["x-user-id"];
+
+    if (typeof userId !== "string" || !userId) {
+      throw new apiError(401, "Authenticated collector is required");
+    }
+
+    const dashboard = await getMyCollectorDashboard(userId);
+
+    res.status(200).json({
+      success: true,
+      message: "Collector dashboard retrieved successfully",
+      data: dashboard,
+    });
+  },
+);
+
+export const getMyCollectorHistoryController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.headers["x-user-id"];
+
+    if (typeof userId !== "string" || !userId) {
+      throw new apiError(401, "Authenticated collector is required");
+    }
+
+    const history = await getMyCollectorHistory(userId);
+
+    res.status(200).json({
+      success: true,
+      message: "Collector history retrieved successfully",
+      data: history,
+    });
+  },
+);
+
 // =========================================================
 // COLLECTOR
 // =========================================================
@@ -317,6 +360,46 @@ export async function getCollectorByIdController(
   }
 }
 
+export async function getMyCollectorProfileController(
+  req: Request,
+  res: Response,
+) {
+  try {
+    const userId = req.headers["x-user-id"];
+
+    if (typeof userId !== "string" || !userId.trim()) {
+      return res.status(401).json({
+        status: "error",
+        message: "Valid user ID is required",
+      });
+    }
+
+    const collector = await getMyCollectorProfile(userId);
+    const language = getRequestedLanguage(req);
+
+    return res.status(200).json({
+      status: "success",
+      message: "Collector profile fetched successfully",
+      data: await translateResponse(collector, language),
+    });
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to fetch collector profile";
+
+    const statusCode =
+      message ===
+      "Collector profile not found for the logged-in user"
+        ? 404
+        : 500;
+
+    return res.status(statusCode).json({
+      status: "error",
+      message,
+    });
+  }
+}
 export async function updateCollectorController(
   req: Request<{ collectorId: string }>,
   res: Response,
