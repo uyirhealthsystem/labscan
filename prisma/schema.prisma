@@ -242,26 +242,6 @@ model EquipmentService {
   @@index([scanServiceId])
 }
 
-// =========================================================
-// PATIENT
-// =========================================================
-
-
-model Patient {
-  patientId    String        @id @default(uuid())
-  name         String
-  gender       Gender?
-  age          Int?
-  phone        String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  appointments Appointment[]
-
-  @@index([name])
-  @@index([phone])
-}
-
-
 
 // =========================================================
 // APPOINTMENT
@@ -306,8 +286,7 @@ model Appointment {
   report         Report?
   earning        Earning?
 
-  patient Patient @relation(fields: [patientId], references: [patientId])
-
+   
   @@index([patientId])
   @@index([labId])
   @@index([scanCenterId])

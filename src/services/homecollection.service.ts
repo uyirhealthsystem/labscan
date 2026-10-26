@@ -198,7 +198,7 @@ export async function createHomeCollection(
     include: {
       appointment: {
         include: {
-          patient: true,
+         // patient: true,
           lab: true,
         },
       },
@@ -211,7 +211,7 @@ export async function getHomeCollections() {
     include: {
       appointment: {
         include: {
-          patient: true,
+         // patient: true,
           lab: true,
         },
       },
@@ -252,7 +252,7 @@ export async function getHomeCollectionByAppointmentId(
     include: {
       appointment: {
         include: {
-          patient: true,
+         // patient: true,
           lab: true,
         },
       },
@@ -286,7 +286,7 @@ export async function getHomeCollectionById(
     include: {
       appointment: {
         include: {
-          patient: true,
+          //patient: true,
           lab: true,
         },
       },
@@ -583,7 +583,7 @@ export async function getMyCollectorHistory(userId: string) {
         include: {
           appointment: {
             include: {
-              patient: true,
+              //patient: true,
               tests: {
                 include: {
                   labTest: {
@@ -822,7 +822,7 @@ export async function getCollectorAssignments() {
         include: {
           appointment: {
             include: {
-              patient: true,
+              //patient: true,
               lab: true,
             },
           },
@@ -848,7 +848,7 @@ export async function getCollectorAssignmentById(
         include: {
           appointment: {
             include: {
-              patient: true,
+             // patient: true,
               lab: true,
             },
           },
@@ -1101,7 +1101,7 @@ export async function getCollectorBookings(collectorId: string) {
         include: {
           appointment: {
             include: {
-              patient: true,
+              //patient: true,
               lab: true,
             },
           },
@@ -1142,7 +1142,7 @@ export async function getCollectorHistory(collectorId: string) {
         include: {
           appointment: {
             include: {
-              patient: true,
+              //patient: true,
               lab: true,
             },
           },
@@ -1218,7 +1218,7 @@ export async function acceptCollectorAssignment(
           include: {
             appointment: {
               include: {
-                patient: true,
+                //patient: true,
                 lab: true,
               },
             },
@@ -1268,7 +1268,7 @@ export async function getMyCollectorBookings(userId: string) {
         include: {
           appointment: {
             include: {
-              patient: true,
+             // patient: true,
               tests: {
                 include: {
                   labTest: {
@@ -1534,7 +1534,7 @@ export async function getHomeCollectionHistory(
     include: {
       appointment: {
         include: {
-          patient: true,
+          //patient: true,
           tests: {
             include: {
               labTest: {

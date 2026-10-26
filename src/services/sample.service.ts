@@ -200,11 +200,8 @@ export const generateCollectionOtp = async (
     include: {
       appointmentTest: {
         include: {
-          appointment: {
-            include: {
-              patient: true,
-            },
-          },
+          appointment:true 
+           
         },
       },
       homeCollection: true,
@@ -513,11 +510,7 @@ export const getSampleByBarcode = async (
     include: {
       appointmentTest: {
         include: {
-          appointment: {
-            include: {
-              patient: true,
-            },
-          },
+          appointment: true,
           labTest: {
             include: {
               testCatalog: true,

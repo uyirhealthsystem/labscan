@@ -386,7 +386,7 @@ export async function createAppointment(data: CreateAppointmentInput) {
     include: {
       // Keep patient: true only if your Prisma Patient relation
       // correctly references Appointment.patientId.
-      patient: true,
+      //patient: true,
       lab: true,
       scanCenter: true,
       tests: {
@@ -429,7 +429,7 @@ export async function getAppointments() {
       createdAt: "desc",
     },
     include: {
-      patient: true,
+      //patient: true,
 
       lab: true,
 
@@ -979,7 +979,7 @@ export async function getAppointmentById(
         appointmentId,
       },
       include: {
-        patient: true,
+       // patient: true,
 
         lab: true,
 
@@ -1068,7 +1068,7 @@ export async function updateAppointment(
       patientNotes: data.patientNotes,
     },
     include: {
-      patient: true,
+     // patient: true,
 
       lab: true,
 
