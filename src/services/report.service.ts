@@ -1,3 +1,4 @@
+
 import { prisma } from "./prisma.service";
 
 // =========================================================
@@ -6,6 +7,7 @@ import { prisma } from "./prisma.service";
 
 export interface CreateReportInput {
   appointmentId: string;
+  appointmentTestId?: string;
   status?: "PENDING" | "UPLOADED" | "SENT";
   reportNotes?: string;
   uploadedAt?: string;
@@ -30,17 +32,50 @@ export async function createReport(data: CreateReportInput) {
     throw new Error("Appointment not found");
   }
 
-  const existingReport = await prisma.report.findUnique({
-    where: { appointmentId: data.appointmentId },
-  });
+  if (appointment.appointmentType === "LAB" && !data.appointmentTestId) {
+    throw new Error("appointmentTestId is required for LAB reports");
+  }
 
-  if (existingReport) {
-    throw new Error("Report already exists for this appointment");
+  if (appointment.appointmentType === "SCAN" && data.appointmentTestId) {
+    throw new Error("appointmentTestId must not be provided for SCAN reports");
+  }
+
+  if (data.appointmentTestId) {
+    const appointmentTest = await prisma.appointmentTest.findUnique({
+      where: { appointmentTestId: data.appointmentTestId },
+    });
+
+    if (
+      !appointmentTest ||
+      appointmentTest.appointmentId !== data.appointmentId
+    ) {
+      throw new Error("Appointment test not found for this appointment");
+    }
+
+    const existingReport = await prisma.report.findUnique({
+      where: { appointmentTestId: data.appointmentTestId },
+    });
+
+    if (existingReport) {
+      throw new Error("A report already exists for this appointment test");
+    }
+  } else {
+    const existingReport = await prisma.report.findFirst({
+      where: {
+        appointmentId: data.appointmentId,
+        appointmentTestId: null,
+      },
+    });
+
+    if (existingReport) {
+      throw new Error("Report already exists for this appointment");
+    }
   }
 
   return prisma.report.create({
     data: {
       appointmentId: data.appointmentId,
+      appointmentTestId: data.appointmentTestId,
       status: data.status,
       reportNotes: data.reportNotes,
       uploadedAt: data.uploadedAt
@@ -51,6 +86,7 @@ export async function createReport(data: CreateReportInput) {
     },
     include: {
       appointment: true,
+      appointmentTest: true,
       files: true,
     },
   });
@@ -60,6 +96,7 @@ export async function getReports() {
   return prisma.report.findMany({
     include: {
       appointment: true,
+      appointmentTest: true,
       files: true,
     },
     orderBy: {
@@ -68,7 +105,12 @@ export async function getReports() {
   });
 }
 
+// =========================================================
+// UPLOAD REPORT
+// =========================================================
+
 export const uploadReport = async (
+  
   appointmentId: string,
   file: {
     originalname: string;
@@ -76,66 +118,155 @@ export const uploadReport = async (
     mimetype: string;
     size: number;
   },
+  appointmentTestId?: string,
 ) => {
+  console.log("SERVICE uploadReport received:", {
+  appointmentId,
+  appointmentTestId,
+  hasAppointmentTestId: Boolean(appointmentTestId),
+});
+console.log("UPLOAD SERVICE DEBUG:", {
+  appointmentId,
+  appointmentTestId,
+  type: typeof appointmentTestId,
+});
   const appointment = await prisma.appointment.findUnique({
-    where: {
-      appointmentId,
-    },
+    where: { appointmentId },
   });
 
   if (!appointment) {
     throw new Error("Appointment not found");
   }
 
-  let report = await prisma.report.findUnique({
-    where: {
-      appointmentId,
-    },
-  });
-
-  const fileUrl = `reports/${file.filename}`;
-
-  if (!report) {
-    report = await prisma.report.create({
-      data: {
-        appointmentId,
-        status: "UPLOADED",
-        uploadedAt: new Date(),
-      },
-    });
-  } else {
-    report = await prisma.report.update({
-      where: {
-        reportId: report.reportId,
-      },
-      data: {
-        status: "UPLOADED",
-        uploadedAt: new Date(),
-      },
-    });
+  if (appointment.appointmentType === "LAB" && !appointmentTestId) {
+    throw new Error("appointmentTestId is required for LAB reports");
   }
 
-  const reportFile = await prisma.reportFile.create({
-    data: {
-      reportId: report.reportId,
-      fileName: file.originalname,
-      fileUrl,
-      fileType: file.mimetype,
-      fileSize: file.size,
-    },
-  });
+  if (appointment.appointmentType === "SCAN" && appointmentTestId) {
+    throw new Error("appointmentTestId must not be provided for SCAN reports");
+  }
 
-  return {
-    report,
-    file: reportFile,
-  };
+  return prisma.$transaction(async (tx) => {
+    let reportId: string;
+
+    if (appointmentTestId) {
+      const appointmentTest = await tx.appointmentTest.findUnique({
+        where: { appointmentTestId },
+      });
+
+      if (
+        !appointmentTest ||
+        appointmentTest.appointmentId !== appointmentId
+      ) {
+        throw new Error("Appointment test not found for this appointment");
+      }
+
+      if (appointmentTest.status === "COMPLETED") {
+        throw new Error("This test is already completed");
+      }
+
+      const existingReport = await tx.report.findUnique({
+        where: { appointmentTestId },
+      });
+
+      if (existingReport) {
+        await tx.report.update({
+          where: { reportId: existingReport.reportId },
+          data: {
+            status: "UPLOADED",
+            uploadedAt: new Date(),
+          },
+        });
+
+        reportId = existingReport.reportId;
+      } else {
+        const newReport = await tx.report.create({
+          data: {
+            appointmentId,
+            appointmentTestId,
+            status: "UPLOADED",
+            uploadedAt: new Date(),
+          },
+        });
+
+        reportId = newReport.reportId;
+      }
+    } else {
+      // SCAN reports remain linked to the appointment, not a lab test.
+      const existingReport = await tx.report.findFirst({
+        where: {
+          appointmentId,
+          appointmentTestId: null,
+        },
+      });
+
+      if (existingReport) {
+        await tx.report.update({
+          where: { reportId: existingReport.reportId },
+          data: {
+            status: "UPLOADED",
+            uploadedAt: new Date(),
+          },
+        });
+
+        reportId = existingReport.reportId;
+      } else {
+        const newReport = await tx.report.create({
+          data: {
+            appointmentId,
+            status: "UPLOADED",
+            uploadedAt: new Date(),
+          },
+        });
+
+        reportId = newReport.reportId;
+      }
+    }
+
+    const reportFile = await tx.reportFile.create({
+      data: {
+        reportId,
+        fileName: file.originalname,
+        fileUrl: `reports/${file.filename}`,
+        fileType: file.mimetype,
+        fileSize: file.size,
+      },
+    });
+
+    // Complete only the test whose report was uploaded.
+    if (appointmentTestId) {
+      await tx.appointmentTest.update({
+        where: { appointmentTestId },
+        data: { status: "COMPLETED" },
+      });
+    }
+
+    const report = await tx.report.findUniqueOrThrow({
+      where: { reportId },
+      include: {
+        appointment: true,
+        appointmentTest: true,
+        files: true,
+      },
+    });
+
+    return {
+      report,
+      file: reportFile,
+    };
+  });
 };
+
+// =========================================================
+// GET REPORT
+// =========================================================
 
 export async function getReportById(reportId: string) {
   const report = await prisma.report.findUnique({
     where: { reportId },
     include: {
       appointment: true,
+      appointmentTest: true,
       files: true,
     },
   });
@@ -158,20 +289,23 @@ export async function getReportByAppointment(
     throw new Error("Appointment not found");
   }
 
-  const report = await prisma.report.findUnique({
+  // An appointment can now have multiple reports.
+  return prisma.report.findMany({
     where: { appointmentId },
     include: {
-      files: true,
       appointment: true,
+      appointmentTest: true,
+      files: true,
+    },
+    orderBy: {
+      createdAt: "desc",
     },
   });
-
-  if (!report) {
-    throw new Error("Report not found");
-  }
-
-  return report;
 }
+
+// =========================================================
+// UPDATE REPORT
+// =========================================================
 
 export async function updateReport(
   reportId: string,
@@ -197,6 +331,8 @@ export async function updateReport(
       notifyPatient: data.notifyPatient,
     },
     include: {
+      appointment: true,
+      appointmentTest: true,
       files: true,
     },
   });
@@ -215,7 +351,6 @@ export async function deleteReport(reportId: string) {
     where: { reportId },
   });
 }
-
 
 // =========================================================
 // REPORT FILE
@@ -326,7 +461,6 @@ export async function deleteReportFile(
   });
 }
 
-
 // =========================================================
 // EARNING
 // =========================================================
@@ -360,9 +494,7 @@ export async function createEarning(
   });
 
   if (existingEarning) {
-    throw new Error(
-      "Earning already exists for this appointment",
-    );
+    throw new Error("Earning already exists for this appointment");
   }
 
   return prisma.earning.create({

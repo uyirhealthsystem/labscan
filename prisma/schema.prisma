@@ -283,7 +283,7 @@ model Appointment {
   reschedules  Reschedule[]
 
   homeCollection HomeCollection?
-  report         Report?
+  reports        Report[]
   earning        Earning?
 
    
@@ -320,6 +320,7 @@ model AppointmentTest {
   labTest     LabTest     @relation(fields: [labTestId], references: [labTestId])
 
   samples Sample[]
+  report  Report?
 
   @@unique([appointmentId, labTestId])
   @@index([appointmentId])
@@ -626,7 +627,8 @@ model SampleOtpVerification {
 model Report {
   reportId String @id @default(uuid())
 
-  appointmentId String @unique
+  appointmentId     String
+  appointmentTestId String? @unique
 
   status ReportStatus @default(PENDING)
 
@@ -640,10 +642,12 @@ model Report {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  appointment Appointment @relation(fields: [appointmentId], references: [appointmentId], onDelete: Cascade)
+  appointment     Appointment      @relation(fields: [appointmentId], references: [appointmentId], onDelete: Cascade)
+  appointmentTest AppointmentTest? @relation(fields: [appointmentTestId], references: [appointmentTestId], onDelete: Cascade)
 
   files ReportFile[]
 
+  @@index([appointmentId])
   @@index([status])
   @@index([uploadedAt])
   @@index([sentAt])

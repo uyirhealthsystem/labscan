@@ -396,6 +396,9 @@ export async function createAppointment(data: CreateAppointmentInput) {
               testCatalog: true,
             },
           },
+          report: {
+            include: { files: true },
+          },
         },
       },
       services: {
@@ -411,7 +414,9 @@ export async function createAppointment(data: CreateAppointmentInput) {
       homeCollection: true,
       cancellation: true,
       reschedules: true,
-      report: true,
+      reports: {
+        include: { files: true },
+      },
       earning: true,
     },
   });
@@ -442,6 +447,9 @@ export async function getAppointments() {
               testCatalog: true,
             },
           },
+          report: {
+            include: { files: true },
+          },
         },
       },
 
@@ -462,7 +470,9 @@ export async function getAppointments() {
 
       reschedules: true,
 
-      report: true,
+      reports: {
+        include: { files: true },
+      },
 
       earning: true,
     },
@@ -550,6 +560,15 @@ export async function getAppointmentsByLabId(labId: string) {
           fastingRequirement: true,
           fastingHours: true,
           preparationInstructions: true,
+
+          report: {
+            select: {
+              reportId: true,
+              status: true,
+              uploadedAt: true,
+              sentAt: true,
+            },
+          },
 
           labTest: {
             select: {
@@ -700,9 +719,10 @@ export async function getAppointmentsByLabId(labId: string) {
       // =========================
       // REPORT
       // =========================
-      report: {
+      reports: {
         select: {
           reportId: true,
+          appointmentTestId: true,
           status: true,
           uploadedAt: true,
           sentAt: true,
@@ -728,176 +748,95 @@ export async function getAppointmentsByLabId(labId: string) {
 
 export const completeAppointment = async (appointmentId: string) => {
   const appointment = await prisma.appointment.findUnique({
-    where: {
-      appointmentId,
-    },
+    where: { appointmentId },
     include: {
-      tests: true,
+      tests: { include: { report: true } },
       services: true,
+      reports: true,
     },
   });
 
-  if (!appointment) {
-    throw new Error("Appointment not found");
-  }
-
-  // -------------------------------------------------------
-  // Appointment status validation
-  // -------------------------------------------------------
-
+  if (!appointment) throw new Error("Appointment not found");
   if (appointment.status === "COMPLETED") {
     throw new Error("Appointment is already completed");
   }
-
   if (appointment.status === "CANCELLED") {
     throw new Error("Cancelled appointment cannot be completed");
   }
-
   if (appointment.status === "RESCHEDULED") {
     throw new Error("Rescheduled appointment cannot be completed");
   }
 
-  // =======================================================
-  // LAB APPOINTMENT
-  // =======================================================
-
   if (appointment.appointmentType === "LAB") {
-    // -----------------------------------------------------
-    // 1. All appointment tests must be completed
-    // -----------------------------------------------------
+    if (appointment.tests.length === 0) {
+      throw new Error("At least one test is required to complete a LAB appointment");
+    }
 
-    const incompleteTests = appointment.tests.filter(
-      (test) => test.status !== "COMPLETED",
-    );
-
-    if (incompleteTests.length > 0) {
+    if (appointment.tests.some((test) => test.status !== "COMPLETED")) {
       throw new Error(
         "All appointment tests must be completed before completing the appointment",
       );
     }
 
-    // -----------------------------------------------------
-    // 2. Report must exist
-    // -----------------------------------------------------
+    const testsWithoutUploadedReports = appointment.tests.filter(
+      (test) =>
+        !test.report ||
+        (test.report.status !== "UPLOADED" && test.report.status !== "SENT"),
+    );
 
-    const report = await prisma.report.findUnique({
-      where: {
-        appointmentId,
-      },
-    });
-
-    if (!report) {
+    if (testsWithoutUploadedReports.length > 0) {
       throw new Error(
-        "Report must be uploaded before completing the appointment",
-      );
-    }
-
-    // -----------------------------------------------------
-    // 3. Report must be uploaded or sent
-    // -----------------------------------------------------
-
-    if (
-      report.status !== "UPLOADED" &&
-      report.status !== "SENT"
-    ) {
-      throw new Error(
-        "Report must be uploaded before completing the appointment",
+        "Every lab test must have its own uploaded or sent report before completing the appointment",
       );
     }
   }
 
-  // =======================================================
-  // SCAN APPOINTMENT
-  // =======================================================
-
   if (appointment.appointmentType === "SCAN") {
-    // -----------------------------------------------------
-    // All appointment services must be completed
-    // -----------------------------------------------------
+    if (appointment.services.length === 0) {
+      throw new Error("At least one scan service is required to complete a SCAN appointment");
+    }
 
-    const incompleteServices = appointment.services.filter(
-      (service) => service.status !== "COMPLETED",
-    );
-
-    if (incompleteServices.length > 0) {
+    if (appointment.services.some((service) => service.status !== "COMPLETED")) {
       throw new Error(
         "All appointment services must be completed before completing the appointment",
       );
     }
 
-    // -----------------------------------------------------
-    // Report must exist for scan appointment
-    // -----------------------------------------------------
+    // SCAN reports remain appointment-level reports (appointmentTestId = null).
+    const report = appointment.reports.find(
+      (item) => item.appointmentTestId === null,
+    );
 
-    const report = await prisma.report.findUnique({
-      where: {
-        appointmentId,
-      },
-    });
-
-    if (!report) {
+    if (!report || (report.status !== "UPLOADED" && report.status !== "SENT")) {
       throw new Error(
-        "Report must be uploaded before completing the appointment",
-      );
-    }
-
-    if (
-      report.status !== "UPLOADED" &&
-      report.status !== "SENT"
-    ) {
-      throw new Error(
-        "Report must be uploaded before completing the appointment",
+        "An uploaded or sent appointment-level report is required before completing the appointment",
       );
     }
   }
 
-  // =======================================================
-  // COMPLETE APPOINTMENT
-  // =======================================================
-
-  const completedAppointment =
-    await prisma.appointment.update({
-      where: {
-        appointmentId,
-      },
-      data: {
-        status: "COMPLETED",
-      },
-      include: {
-        lab: true,
-
-        scanCenter: true,
-
-        tests: {
-          include: {
-            labTest: {
-              include: {
-                testCatalog: true,
-              },
-            },
-          },
+  return prisma.appointment.update({
+    where: { appointmentId },
+    data: { status: "COMPLETED" },
+    include: {
+      lab: true,
+      scanCenter: true,
+      tests: {
+        include: {
+          labTest: { include: { testCatalog: true } },
+          report: { include: { files: true } },
         },
-
-        services: {
-          include: {
-            scanService: {
-              include: {
-                serviceCatalog: true,
-              },
-            },
-            equipment: true,
-          },
-        },
-
-        homeCollection: true,
-
-        report: true,
-
-        earning: true,
       },
-    });
-
-  return completedAppointment;
+      services: {
+        include: {
+          scanService: { include: { serviceCatalog: true } },
+          equipment: true,
+        },
+      },
+      homeCollection: true,
+      reports: { include: { files: true } },
+      earning: true,
+    },
+  });
 };
 
 
@@ -937,6 +876,9 @@ export async function getAppointmentsByPatient(
               testCatalog: true,
             },
           },
+          report: {
+            include: { files: true },
+          },
         },
       },
 
@@ -957,7 +899,9 @@ export async function getAppointmentsByPatient(
 
       reschedules: true,
 
-      report: true,
+      reports: {
+        include: { files: true },
+      },
 
       earning: true,
     },
@@ -1012,7 +956,9 @@ export async function getAppointmentById(
 
         reschedules: true,
 
-        report: true,
+        reports: {
+          include: { files: true },
+        },
 
         earning: true,
       },
@@ -1081,6 +1027,9 @@ export async function updateAppointment(
               testCatalog: true,
             },
           },
+          report: {
+            include: { files: true },
+          },
         },
       },
 
@@ -1096,6 +1045,7 @@ export async function updateAppointment(
       },
 
       homeCollection: true,
+      reports: { include: { files: true } },
     },
   });
 }
@@ -1226,6 +1176,9 @@ export async function createAppointmentTest(
           testCatalog: true,
         },
       },
+      report: {
+        include: { files: true },
+      },
     },
   });
 }
@@ -1246,6 +1199,9 @@ export async function getAllAppointmentTests() {
         include: {
           testCatalog: true,
         },
+      },
+      report: {
+        include: { files: true },
       },
     },
   });
@@ -1282,6 +1238,9 @@ export async function getAppointmentTests(
           testCatalog: true,
         },
       },
+      report: {
+        include: { files: true },
+      },
     },
   });
 }
@@ -1305,6 +1264,9 @@ export async function getAppointmentTestById(
           include: {
             testCatalog: true,
           },
+        },
+        report: {
+          include: { files: true },
         },
       },
     });
@@ -1348,6 +1310,9 @@ export async function updateAppointmentTest(
           testCatalog: true,
         },
       },
+      report: {
+        include: { files: true },
+      },
     },
   });
 }
@@ -1368,6 +1333,18 @@ export async function deleteAppointmentTest(
 
   if (!existing) {
     throw new Error("Appointment test not found");
+  }
+
+  if (existing.status === "COMPLETED") {
+    throw new Error("Cannot delete a completed appointment test");
+  }
+
+  const existingReport = await prisma.report.findUnique({
+    where: { appointmentTestId },
+  });
+
+  if (existingReport) {
+    throw new Error("Cannot delete an appointment test that already has a report");
   }
 
   await prisma.appointmentTest.delete({

@@ -82,7 +82,17 @@ export async function uploadReportController(
   res: Response,
 ): Promise<void> {
   try {
-    const appointmentId = String(req.params.appointmentId);
+    const appointmentId = String(req.params.appointmentId ?? "");
+    console.log("UPLOAD DEBUG:", {
+  params: req.params,
+  body: req.body,
+  fileReceived: Boolean(req.file),
+});
+    const appointmentTestId =
+      typeof req.body?.appointmentTestId === "string"
+        ? req.body.appointmentTestId.trim()
+        : undefined;
+
     const file = req.file;
 
     if (!appointmentId || appointmentId === "undefined") {
@@ -101,12 +111,16 @@ export async function uploadReportController(
       return;
     }
 
-    const result = await uploadReport(appointmentId, {
-      originalname: file.originalname,
-      filename: file.filename,
-      mimetype: file.mimetype,
-      size: file.size,
-    });
+    const result = await uploadReport(
+      appointmentId,
+      {
+        originalname: file.originalname,
+        filename: file.filename,
+        mimetype: file.mimetype,
+        size: file.size,
+      },
+      appointmentTestId,
+    );
 
     const language = getRequestedLanguage(req);
 

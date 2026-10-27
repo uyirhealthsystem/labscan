@@ -910,64 +910,54 @@ export const updateSample = async (
   // -------------------------------------------------------
 
   if (newStatus === "COMPLETED") {
-    if (currentStatus !== "PROCESSING") {
-      throw new Error(
-        "Sample must be PROCESSING before COMPLETED",
-      );
-    }
+  if (currentStatus !== "PROCESSING") {
+    throw new Error(
+      "Sample must be PROCESSING before COMPLETED",
+    );
+  }
 
-    // Resolve the appointment through the sample's appointment test
-    const appointmentTest = existingSample.appointmentTest;
+  const appointmentTest = existingSample.appointmentTest;
 
-    if (!appointmentTest) {
-      throw new Error(
-        "Appointment test not found for this sample",
-      );
-    }
+  if (!appointmentTest) {
+    throw new Error(
+      "Appointment test not found for this sample",
+    );
+  }
 
-    // Find the appointment associated with this appointment test
-    const appointmentId = appointmentTest.appointmentId;
-
-    if (!appointmentId) {
-      throw new Error(
-        "Appointment not found for this sample",
-      );
-    }
-
-    const report = await prisma.report.findUnique({
-      where: {
-        appointmentId,
-      },
-      include: {
-        files: {
-          select: {
-            reportFileId: true,
-          },
+  const report = await prisma.report.findUnique({
+    where: {
+      appointmentTestId: existingSample.appointmentTestId,
+    },
+    include: {
+      files: {
+        select: {
+          reportFileId: true,
         },
       },
-    });
+    },
+  });
 
-    if (!report) {
-      throw new Error(
-        "Upload a report before completing the sample",
-      );
-    }
-
-    if (
-      report.status !== "UPLOADED" &&
-      report.status !== "SENT"
-    ) {
-      throw new Error(
-        "Report must be UPLOADED or SENT before completing the sample",
-      );
-    }
-
-    if (report.files.length === 0) {
-      throw new Error(
-        "Upload at least one report file before completing the sample",
-      );
-    }
+  if (!report) {
+    throw new Error(
+      "Upload a report for this test before completing the sample",
+    );
   }
+
+  if (
+    report.status !== "UPLOADED" &&
+    report.status !== "SENT"
+  ) {
+    throw new Error(
+      "Report must be UPLOADED or SENT before completing the sample",
+    );
+  }
+
+  if (report.files.length === 0) {
+    throw new Error(
+      "Upload at least one report file before completing the sample",
+    );
+  }
+}
 
   // -------------------------------------------------------
   // REJECTED
