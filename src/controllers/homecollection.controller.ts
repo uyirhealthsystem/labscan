@@ -243,6 +243,7 @@ export async function createCollectorController(
 ) {
   try {
     const {
+      userId,
       labId,
       name,
       phone,
@@ -262,6 +263,7 @@ export async function createCollectorController(
     }
 
     const collector = await createCollector({
+      userId,
       labId,
       name,
       phone,

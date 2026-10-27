@@ -21,6 +21,7 @@ export interface UpdateHomeCollectionInput {
 }
 
 export interface CreateCollectorInput {
+  userId: string; // ID of the existing user account,
   labId: string;
   name: string;
   phone?: string;
@@ -275,21 +276,42 @@ export async function updateHomeCollection(homeCollectionId: string, data: Updat
 // =========================================================
 
 export async function createCollector(data: CreateCollectorInput) {
-  const lab = await prisma.lab.findUnique({ where: { labId: data.labId } });
-  if (!lab) throw new Error("Lab not found");
+  if (!data.userId?.trim()) {
+    throw new Error("userId is required");
+  }
+
+  const lab = await prisma.lab.findUnique({
+    where: { labId: data.labId },
+  });
+
+  if (!lab) {
+    throw new Error("Lab not found");
+  }
+
+  const existingCollector = await prisma.collector.findUnique({
+    where: { userId: data.userId },
+  });
+
+  if (existingCollector) {
+    throw new Error("A collector profile already exists for this user");
+  }
+
   return prisma.collector.create({
     data: {
+      userId: data.userId,
       labId: data.labId,
       name: data.name,
       phone: data.phone,
-      role: data.role,
+      role: data.role ?? "TECHNICIAN",
       qualification: data.qualification,
       qualificationNumber: data.qualificationNumber,
       qualificationProofUrl: data.qualificationProofUrl,
       qualificationStatus: data.qualificationStatus ?? "PENDING",
       status: data.status ?? "ACTIVE",
     },
-    include: { assignments: true },
+    include: {
+      assignments: true,
+    },
   });
 }
 
