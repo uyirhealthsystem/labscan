@@ -1,4 +1,3 @@
-
 import { Router } from "express";
 
 import {
@@ -10,98 +9,74 @@ import {
   updateSampleController,
   deleteSampleController,
   generateCollectionOtpController,
-  verifyCollectionOtpController,
   verifyCollectorCollectionOtpController,
   uploadCollectorSampleEvidenceController,
-  updateCollectorSampleStatusController
+  updateCollectorSampleStatusController,
+  generateSampleHandoverOtpController,
+  verifySampleHandoverOtpController,
 } from "../controllers/sample.controller";
 
-
-
+import { userAuth } from "../middlewares/userauth";
 import { reportUpload } from "../middlewares/upload.middleware";
 
 const router = Router();
 
-// =========================================================
-// SAMPLE
-// =========================================================
+// All sample routes require an authenticated identity.
+router.use(userAuth);
 
-// Create sample / barcode record
-router.post(
-  "/sample",
-  createSampleController,
-);
+// Sample management
+router.post("/sample", createSampleController);
+router.get("/samples", getSamplesController);
 
-// Get all samples
-router.get(
-  "/samples",
-  getSamplesController,
-);
-
-// Get samples by appointment test
 router.get(
   "/sample/appointmenttest/:appointmentTestId",
   getSamplesByAppointmentTestController,
 );
 
-// Get sample by barcode
 router.get(
   "/sample/barcode/:barcode",
   getSampleByBarcodeController,
 );
 
-// =========================================================
-// OTP
-// =========================================================
+router.get("/sample/:sampleId", getSampleByIdController);
+router.put("/sample/:sampleId", updateSampleController);
+router.delete("/sample/:sampleId", deleteSampleController);
 
-// Generate collection OTP
+// Collection OTP
 router.post(
   "/sample/:sampleId/otp/generate",
   generateCollectionOtpController,
 );
 
-// Verify collection OTP
-router.post(
-  "/sample/:sampleId/otp/verify",
-  verifyCollectionOtpController,
-);
-
+// Collector collection OTP verification
 router.post(
   "/collector/samples/:sampleId/verify-otp",
   verifyCollectorCollectionOtpController,
 );
 
-router.patch(
-  "/collector/samples/:sampleId/status",
-  updateCollectorSampleStatusController,
-);
-
-
+// Collector evidence
 router.post(
   "/collector/samples/:sampleId/evidence",
   reportUpload.single("file"),
   uploadCollectorSampleEvidenceController,
 );
-// =========================================================
-// SAMPLE BY ID
-// =========================================================
 
-router.get(
-  "/sample/:sampleId",
-  getSampleByIdController,
+// Collector sample status
+router.patch(
+  "/collector/samples/:sampleId/status",
+  updateCollectorSampleStatusController,
 );
 
-// Update sample status
-router.put(
-  "/sample/:sampleId",
-  updateSampleController,
+// Lab generates handover OTP
+router.post(
+  "/sample/:sampleId/handover-otp/generate",
+  generateSampleHandoverOtpController,
 );
 
-// Delete sample
-router.delete(
-  "/sample/:sampleId",
-  deleteSampleController,
+// Collector verifies handover OTP
+router.post(
+  "/collector/samples/:sampleId/handover-otp/verify",
+  verifySampleHandoverOtpController,
 );
 
 export default router;
-

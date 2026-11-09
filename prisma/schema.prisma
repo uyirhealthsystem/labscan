@@ -30,11 +30,12 @@ model Lab {
   collectors   Collector[]
 
   // Provider-related
-  timeSlots        TimeSlot[]
-  bankAccounts     ProviderBankAccount[]
-  payouts          Payout[]
-  providerSettings ProviderSettings?
-  supportTickets   SupportTicket[]
+  timeSlots          TimeSlot[]
+  bankAccounts       ProviderBankAccount[]
+  payouts            Payout[]
+  providerSettings   ProviderSettings?
+  supportTickets     SupportTicket[]
+  collectorApprovals CollectorLabApproval[]
 
   @@index([labUserId])
   @@index([districtId])
@@ -242,7 +243,6 @@ model EquipmentService {
   @@index([scanServiceId])
 }
 
-
 // =========================================================
 // APPOINTMENT
 // =========================================================
@@ -286,7 +286,6 @@ model Appointment {
   reports        Report[]
   earning        Earning?
 
-   
   @@index([patientId])
   @@index([labId])
   @@index([scanCenterId])
@@ -415,13 +414,19 @@ model Reschedule {
 
 model HomeCollection {
   homeCollectionId String @id @default(uuid())
-
-  appointmentId String @unique
+  appointmentId    String @unique
 
   address             String
+  latitude            Float?
+  longitude           Float?
   specialInstructions String?
 
   status HomeCollectionStatus @default(PENDING)
+
+  // Collector allocation workflow
+  allocationStage        CollectionAllocationStage @default(LAB_COLLECTORS)
+  matchingStartedAt      DateTime                  @default(now())
+  independentEscalatedAt DateTime?
 
   assignedAt  DateTime?
   collectedAt DateTime?
@@ -430,15 +435,17 @@ model HomeCollection {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  appointment Appointment @relation(fields: [appointmentId], references: [appointmentId], onDelete: Cascade)
-
+  appointment         Appointment              @relation(fields: [appointmentId], references: [appointmentId], onDelete: Cascade)
   collectorAssignment CollectorAssignment?
   trackingEvents      HomeCollectionTracking[]
-
-  samples Sample[]
+  samples             Sample[]
+  bookingOffers       CollectorBookingOffer[]
 
   @@index([status])
+  @@index([allocationStage])
   @@index([createdAt])
+  @@index([matchingStartedAt])
+  @@index([latitude, longitude])
 }
 
 // =========================================================
@@ -449,7 +456,10 @@ model Collector {
   collectorId String  @id @default(uuid())
   userId      String? @unique
 
-  labId String
+  // LAB collectors belong to one lab.
+  // INDEPENDENT collectors have no default lab.
+  labId         String?
+  collectorType CollectorType @default(LAB)
 
   name  String
   phone String?
@@ -461,23 +471,74 @@ model Collector {
   qualificationProofUrl String?
 
   qualificationStatus QualificationStatus @default(PENDING)
+  status              CollectorStatus     @default(ACTIVE)
 
-  status CollectorStatus @default(ACTIVE)
+  // Live GPS location
+  latitude       Float?
+  longitude      Float?
+  lastLocationAt DateTime?
+  isAvailable    Boolean   @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  lab Lab @relation(fields: [labId], references: [labId])
-
+  lab         Lab?                  @relation(fields: [labId], references: [labId])
   assignments CollectorAssignment[]
+  samples     Sample[]
+  evidence    SampleEvidence[]
 
-  samples  Sample[]
-  evidence SampleEvidence[]
+  labApprovals  CollectorLabApproval[]
+  bookingOffers CollectorBookingOffer[]
 
   @@index([labId])
+  @@index([collectorType])
   @@index([status])
-  @@index([role])
   @@index([qualificationStatus])
+  @@index([isAvailable])
+  @@index([latitude, longitude])
+}
+
+model CollectorLabApproval {
+  approvalId String @id @default(uuid())
+
+  collectorId String
+  labId       String
+
+  status CollectorLabApprovalStatus @default(PENDING)
+
+  approvedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  collector Collector @relation(fields: [collectorId], references: [collectorId], onDelete: Cascade)
+  lab       Lab       @relation(fields: [labId], references: [labId], onDelete: Cascade)
+
+  @@unique([collectorId, labId])
+  @@index([labId, status])
+  @@index([collectorId, status])
+}
+
+model CollectorBookingOffer {
+  offerId String @id @default(uuid())
+
+  homeCollectionId String
+  collectorId      String
+
+  status CollectorBookingOfferStatus @default(PENDING)
+
+  distanceKm Float
+
+  offeredAt   DateTime  @default(now())
+  respondedAt DateTime?
+  expiresAt   DateTime?
+
+  homeCollection HomeCollection @relation(fields: [homeCollectionId], references: [homeCollectionId], onDelete: Cascade)
+  collector      Collector      @relation(fields: [collectorId], references: [collectorId], onDelete: Cascade)
+
+  @@unique([homeCollectionId, collectorId])
+  @@index([collectorId, status])
+  @@index([homeCollectionId, status])
+  @@index([status, expiresAt])
 }
 
 // =========================================================
@@ -490,7 +551,10 @@ model CollectorAssignment {
   homeCollectionId String @unique
   collectorId      String
 
-  assignedAt DateTime @default(now())
+  source CollectorAssignmentSource @default(LAB_INTERNAL)
+
+  assignedAt DateTime  @default(now())
+  acceptedAt DateTime?
 
   status CollectorAssignmentStatus @default(ASSIGNED)
 
@@ -500,6 +564,7 @@ model CollectorAssignment {
 
   @@index([collectorId])
   @@index([status])
+  @@index([source])
 }
 
 // =========================================================
@@ -1014,6 +1079,24 @@ enum CollectorRole {
   TECHNICIAN
 }
 
+enum CollectorType {
+  LAB
+  INDEPENDENT
+}
+
+enum CollectorLabApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum CollectorBookingOfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
 enum QualificationStatus {
   PENDING
   VERIFIED
@@ -1100,4 +1183,15 @@ enum SupportTicketCategory {
   TECHNICAL
   ACCOUNT
   OTHER
+}
+
+enum CollectionAllocationStage {
+  LAB_COLLECTORS
+  INDEPENDENT_POOL
+  ASSIGNED
+}
+
+enum CollectorAssignmentSource {
+  LAB_INTERNAL
+  INDEPENDENT_POOL
 }

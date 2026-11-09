@@ -1,33 +1,42 @@
+
 import { Router } from "express";
 
 import {
-  createCollectorAssignmentController,
   createCollectorController,
   createHomeCollectionController,
   createHomeCollectionTrackingController,
-  deleteCollectorAssignmentController,
+
   deleteCollectorController,
+  deleteCollectorAssignmentController,
+
   getCollectorAssignmentByIdController,
   getCollectorAssignmentsController,
   getCollectorByIdController,
   getMyCollectorProfileController,
   getCollectorsByLabController,
   getCollectorsController,
+
   getMyCollectorBookingsController,
+  getMyCollectorBookingOffersController,
+
   getHomeCollectionByAppointmentIdController,
   getHomeCollectionByIdController,
   getHomeCollectionTrackingByIdController,
   getHomeCollectionTrackingController,
   getHomeCollectionsController,
+
   updateCollectorAssignmentController,
   updateCollectorController,
   updateHomeCollectionController,
-  acceptMyCollectorAssignmentController,
-  rejectMyCollectorAssignmentController,
+
+  acceptMyCollectorBookingOfferController,
+  rejectMyCollectorBookingOfferController,
+  updateMyCollectorLocationController,
+
   getHomeCollectionSummaryController,
   getHomeCollectionHistoryController,
   getMyCollectorHistoryController,
-  getMyCollectorDashboardController
+  getMyCollectorDashboardController,
 } from "../controllers/homecollection.controller";
 
 const router = Router();
@@ -46,14 +55,20 @@ router.get(
   getHomeCollectionsController,
 );
 
+// Keep specific routes before /homecollection/:homeCollectionId
 router.get(
-  "/homecollection/:homeCollectionId/history",
-  getHomeCollectionHistoryController,
+  "/homecollection/summary",
+  getHomeCollectionSummaryController,
 );
 
 router.get(
   "/homecollection/appointment/:appointmentId",
   getHomeCollectionByAppointmentIdController,
+);
+
+router.get(
+  "/homecollection/:homeCollectionId/history",
+  getHomeCollectionHistoryController,
 );
 
 router.get(
@@ -66,16 +81,8 @@ router.put(
   updateHomeCollectionController,
 );
 
-
-router.get(
-  "/homecollection/summary",
-  getHomeCollectionSummaryController,
-);
-
-
-
 // =========================================================
-// COLLECTOR
+// COLLECTOR MANAGEMENT
 // =========================================================
 
 router.post(
@@ -93,11 +100,35 @@ router.get(
   getMyCollectorProfileController,
 );
 
+// Collector's current location and availability
+router.patch(
+  "/collectors/me/location",
+  updateMyCollectorLocationController,
+);
+
+// Collector's bookings and offers
 router.get(
   "/collectors/me/bookings",
   getMyCollectorBookingsController,
 );
 
+router.get(
+  "/collectors/me/offers",
+  getMyCollectorBookingOffersController,
+);
+
+// Accept or reject a booking offer using offerId
+router.post(
+  "/collectors/me/offers/:offerId/accept",
+  acceptMyCollectorBookingOfferController,
+);
+
+router.post(
+  "/collectors/me/offers/:offerId/reject",
+  rejectMyCollectorBookingOfferController,
+);
+
+// Collector dashboard and history
 router.get(
   "/collectors/me/dashboard",
   getMyCollectorDashboardController,
@@ -108,11 +139,13 @@ router.get(
   getMyCollectorHistoryController,
 );
 
+// Lab-specific collector listing
 router.get(
   "/collector/lab/:labId",
   getCollectorsByLabController,
 );
 
+// Individual collector management
 router.get(
   "/collector/:collectorId",
   getCollectorByIdController,
@@ -129,13 +162,8 @@ router.delete(
 );
 
 // =========================================================
-// COLLECTOR ASSIGNMENT
+// COLLECTOR ASSIGNMENTS - ADMIN / MANAGEMENT
 // =========================================================
-
-router.post(
-  "/collectorassignment",
-  createCollectorAssignmentController,
-);
 
 router.get(
   "/collectorassignment",
@@ -174,16 +202,6 @@ router.get(
 router.get(
   "/homecollectiontracking/:trackingId",
   getHomeCollectionTrackingByIdController,
-);
-
-router.patch(
-  "/collectorassignments/:assignmentId/accept",
-  acceptMyCollectorAssignmentController,
-);
-
-router.patch(
-  "/collectorassignments/:assignmentId/reject",
-  rejectMyCollectorAssignmentController,
 );
 
 export default router;

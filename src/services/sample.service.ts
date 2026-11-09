@@ -103,6 +103,10 @@ const addSampleTracking = async (
   });
 };
 
+// =========================================================
+// SYNCHRONIZE APPOINTMENT TEST STATUS
+// =========================================================
+
 const synchronizeAppointmentTestStatus = async (
   appointmentTestId: string,
 ): Promise<void> => {
@@ -154,14 +158,22 @@ const synchronizeAppointmentTestStatus = async (
   }
 };
 
+// =========================================================
+// SYNCHRONIZE HOME COLLECTION STATUS
+// =========================================================
+
 const synchronizeHomeCollectionStatus = async (
   homeCollectionId: string,
 ): Promise<void> => {
   const homeCollection = await prisma.homeCollection.findUnique({
     where: { homeCollectionId },
     include: {
-      samples: { select: { status: true } },
-      collectorAssignment: { select: { status: true } },
+      samples: {
+        select: { status: true },
+      },
+      collectorAssignment: {
+        select: { status: true },
+      },
     },
   });
 
@@ -249,18 +261,29 @@ export const createSample = async (data: CreateSampleInput) => {
     },
   });
 
-  if (!appointmentTest) throw new Error("Appointment test not found");
+  if (!appointmentTest) {
+    throw new Error("Appointment test not found");
+  }
 
   if (appointmentTest.appointment.appointmentType !== "LAB") {
     throw new Error("Samples can only be created for LAB appointments");
   }
 
+  let assignedCollectorId: string | undefined;
+
   if (data.homeCollectionId) {
     const homeCollection = await prisma.homeCollection.findUnique({
       where: { homeCollectionId: data.homeCollectionId },
+      include: {
+        collectorAssignment: {
+          include: { collector: true },
+        },
+      },
     });
 
-    if (!homeCollection) throw new Error("Home collection not found");
+    if (!homeCollection) {
+      throw new Error("Home collection not found");
+    }
 
     if (homeCollection.appointmentId !== appointmentTest.appointmentId) {
       throw new Error("Home collection does not belong to this appointment");
@@ -269,14 +292,29 @@ export const createSample = async (data: CreateSampleInput) => {
     if (homeCollection.status === "CANCELLED") {
       throw new Error("Cannot create a sample for a cancelled collection");
     }
-  }
 
-  if (data.collectorId) {
+    const assignment = homeCollection.collectorAssignment;
+
+    if (assignment?.status === "ACCEPTED") {
+      if (assignment.collector.status !== "ACTIVE") {
+        throw new Error("Assigned collector is inactive");
+      }
+
+      assignedCollectorId = assignment.collectorId;
+    }
+
+    if (data.collectorId && data.collectorId !== assignedCollectorId) {
+      throw new Error(
+        "Collector must be taken from the accepted home collection assignment",
+      );
+    }
+  } else if (data.collectorId) {
     const collector = await prisma.collector.findUnique({
       where: { collectorId: data.collectorId },
     });
 
     if (!collector) throw new Error("Collector not found");
+
     if (collector.status !== "ACTIVE") {
       throw new Error("Collector is inactive");
     }
@@ -287,19 +325,23 @@ export const createSample = async (data: CreateSampleInput) => {
     ) {
       throw new Error("Collector does not belong to the appointment's lab");
     }
+
+    assignedCollectorId = collector.collectorId;
   }
 
   const existingSample = await prisma.sample.findUnique({
     where: { barcode: data.barcode },
   });
 
-  if (existingSample) throw new Error("Barcode already exists");
+  if (existingSample) {
+    throw new Error("Barcode already exists");
+  }
 
   const sample = await prisma.sample.create({
     data: {
       appointmentTestId: data.appointmentTestId,
       homeCollectionId: data.homeCollectionId,
-      collectorId: data.collectorId,
+      collectorId: assignedCollectorId,
       barcode: data.barcode,
       sampleType: data.sampleType,
       containerType: data.containerType,
@@ -329,14 +371,16 @@ export const createSample = async (data: CreateSampleInput) => {
 };
 
 // =========================================================
-// COLLECTION OTP
+// COLLECTION OTP GENERATION
 // =========================================================
 
 export const generateCollectionOtp = async (sampleId: string) => {
   const sample = await prisma.sample.findUnique({
     where: { sampleId },
     include: {
-      appointmentTest: { include: { appointment: true } },
+      appointmentTest: {
+        include: { appointment: true },
+      },
       homeCollection: true,
     },
   });
@@ -348,6 +392,7 @@ export const generateCollectionOtp = async (sampleId: string) => {
   }
 
   const otp = generateOtp();
+
   const expiresAt = new Date(
     Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000,
   );
@@ -382,6 +427,10 @@ export const generateCollectionOtp = async (sampleId: string) => {
   };
 };
 
+// =========================================================
+// COLLECTION OTP VERIFICATION
+// =========================================================
+
 export const verifyCollectionOtp = async (
   sampleId: string,
   otp: string,
@@ -390,12 +439,16 @@ export const verifyCollectionOtp = async (
     throw new Error("OTP must be a 6-digit number");
   }
 
-  const sample = await prisma.sample.findUnique({ where: { sampleId } });
+  const sample = await prisma.sample.findUnique({
+    where: { sampleId },
+  });
 
   if (!sample) throw new Error("Sample not found");
 
   if (sample.status !== "PENDING_COLLECTION") {
-    throw new Error("OTP verification is only allowed before sample collection");
+    throw new Error(
+      "OTP verification is only allowed before sample collection",
+    );
   }
 
   const verification = await getLatestOtp(
@@ -403,18 +456,39 @@ export const verifyCollectionOtp = async (
     "COLLECTION_VERIFICATION",
   );
 
-  if (!verification) throw new Error("No collection OTP generated for this sample");
-  if (verification.verified) throw new Error("Collection OTP has already been verified");
-  if (isOtpExpired(verification.expiresAt)) throw new Error("Collection OTP has expired");
+  if (!verification) {
+    throw new Error("No collection OTP generated for this sample");
+  }
+
+  if (verification.verified) {
+    throw new Error("Collection OTP has already been verified");
+  }
+
+  if (isOtpExpired(verification.expiresAt)) {
+    throw new Error("Collection OTP has expired");
+  }
+
   if (verification.attempts >= MAX_OTP_ATTEMPTS) {
     throw new Error("Maximum OTP attempts exceeded");
   }
 
   if (hashOtp(otp) !== verification.otpHash) {
-    await prisma.sampleOtpVerification.update({
-      where: { verificationId: verification.verificationId },
-      data: { attempts: { increment: 1 } },
+    const attemptUpdate = await prisma.sampleOtpVerification.updateMany({
+      where: {
+        verificationId: verification.verificationId,
+        verified: false,
+        attempts: { lt: MAX_OTP_ATTEMPTS },
+        expiresAt: { gt: new Date() },
+      },
+      data: {
+        attempts: { increment: 1 },
+      },
     });
+
+    if (attemptUpdate.count === 0) {
+      throw new Error("Collection OTP is no longer valid");
+    }
+
     throw new Error("Invalid collection OTP");
   }
 
@@ -422,7 +496,10 @@ export const verifyCollectionOtp = async (
     const currentOtp = await tx.sampleOtpVerification.findUnique({
       where: { verificationId: verification.verificationId },
     });
-    const currentSample = await tx.sample.findUnique({ where: { sampleId } });
+
+    const currentSample = await tx.sample.findUnique({
+      where: { sampleId },
+    });
 
     if (
       !currentOtp ||
@@ -439,7 +516,10 @@ export const verifyCollectionOtp = async (
 
     return tx.sampleOtpVerification.update({
       where: { verificationId: currentOtp.verificationId },
-      data: { verified: true, verifiedAt: new Date() },
+      data: {
+        verified: true,
+        verifiedAt: new Date(),
+      },
     });
   });
 
@@ -452,7 +532,7 @@ export const verifyCollectionOtp = async (
 };
 
 // =========================================================
-// GET SAMPLES
+// GET ALL SAMPLES
 // =========================================================
 
 export const getSamples = async () =>
@@ -470,6 +550,10 @@ export const getSamples = async () =>
     },
   });
 
+// =========================================================
+// GET SAMPLES BY APPOINTMENT TEST
+// =========================================================
+
 export const getSamplesByAppointmentTest = async (
   appointmentTestId: string,
 ) => {
@@ -478,7 +562,9 @@ export const getSamplesByAppointmentTest = async (
     select: { appointmentTestId: true },
   });
 
-  if (!appointmentTest) throw new Error("Appointment test not found");
+  if (!appointmentTest) {
+    throw new Error("Appointment test not found");
+  }
 
   return prisma.sample.findMany({
     where: { appointmentTestId },
@@ -487,11 +573,18 @@ export const getSamplesByAppointmentTest = async (
       collector: true,
       homeCollection: true,
       appointmentTest: {
-        include: { labTest: { include: { testCatalog: true } } },
+        include: {
+          labTest: { include: { testCatalog: true } },
+        },
       },
     },
   });
 };
+
+// =========================================================
+// GET SAMPLE BY ID
+// OTP HASHES ARE NOT INCLUDED
+// =========================================================
 
 export const getSampleById = async (sampleId: string) => {
   const sample = await prisma.sample.findUnique({
@@ -505,15 +598,21 @@ export const getSampleById = async (sampleId: string) => {
       },
       collector: true,
       homeCollection: true,
-      trackingEvents: { orderBy: { createdAt: "desc" } },
-      otpVerifications: { orderBy: { generatedAt: "desc" } },
+      trackingEvents: {
+        orderBy: { createdAt: "desc" },
+      },
       evidence: true,
     },
   });
 
   if (!sample) throw new Error("Sample not found");
+
   return sample;
 };
+
+// =========================================================
+// GET SAMPLE BY BARCODE
+// =========================================================
 
 export const getSampleByBarcode = async (barcode: string) => {
   const sample = await prisma.sample.findUnique({
@@ -527,16 +626,19 @@ export const getSampleByBarcode = async (barcode: string) => {
       },
       collector: true,
       homeCollection: true,
-      trackingEvents: { orderBy: { createdAt: "desc" } },
+      trackingEvents: {
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
 
   if (!sample) throw new Error("Sample not found");
+
   return sample;
 };
 
 // =========================================================
-// HANDOVER OTP: GENERATED BY LAB STAFF
+// GENERATE HANDOVER OTP - LAB STAFF
 // =========================================================
 
 export const generateSampleHandoverOtp = async (
@@ -548,7 +650,9 @@ export const generateSampleHandoverOtp = async (
     include: {
       appointmentTest: {
         include: {
-          appointment: { include: { lab: true } },
+          appointment: {
+            include: { lab: true },
+          },
         },
       },
     },
@@ -563,10 +667,13 @@ export const generateSampleHandoverOtp = async (
   }
 
   if (sample.status !== "IN_TRANSIT") {
-    throw new Error("Handover OTP can only be generated for a sample in transit");
+    throw new Error(
+      "Handover OTP can only be generated for a sample in transit",
+    );
   }
 
   const otp = generateOtp();
+
   const expiresAt = new Date(
     Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000,
   );
@@ -602,7 +709,7 @@ export const generateSampleHandoverOtp = async (
 };
 
 // =========================================================
-// HANDOVER OTP: VERIFIED BY COLLECTOR
+// VERIFY HANDOVER OTP - COLLECTOR
 // =========================================================
 
 export const verifySampleHandoverOtp = async (
@@ -610,22 +717,38 @@ export const verifySampleHandoverOtp = async (
   otp: string,
   userId: string,
 ) => {
-  if (!/^\d{6}$/.test(otp)) throw new Error("OTP must be a 6-digit number");
+  if (!/^\d{6}$/.test(otp)) {
+    throw new Error("OTP must be a 6-digit number");
+  }
 
   const collector = await prisma.collector.findUnique({
     where: { userId },
-    select: { collectorId: true, status: true },
+    select: {
+      collectorId: true,
+      status: true,
+    },
   });
 
-  if (!collector) throw new Error("Collector not found for this user");
-  if (collector.status !== "ACTIVE") throw new Error("Collector account is inactive");
+  if (!collector) {
+    throw new Error("Collector not found for this user");
+  }
+
+  if (collector.status !== "ACTIVE") {
+    throw new Error("Collector account is inactive");
+  }
 
   const sample = await prisma.sample.findUnique({
     where: { sampleId },
     include: {
-      homeCollection: { include: { collectorAssignment: true } },
+      homeCollection: {
+        include: { collectorAssignment: true },
+      },
       appointmentTest: {
-        include: { appointment: { include: { lab: true } } },
+        include: {
+          appointment: {
+            include: { lab: true },
+          },
+        },
       },
     },
   });
@@ -655,37 +778,69 @@ export const verifySampleHandoverOtp = async (
     throw new Error("The appointment has no associated lab");
   }
 
-  const verification = await getLatestOtp(sampleId, "SAMPLE_HANDOVER");
+  const verification = await getLatestOtp(
+    sampleId,
+    "SAMPLE_HANDOVER",
+  );
 
-  if (!verification) throw new Error("Handover OTP has not been generated");
-  if (verification.verified) throw new Error("Handover OTP has already been used");
-  if (isOtpExpired(verification.expiresAt)) throw new Error("Handover OTP has expired");
+  if (!verification) {
+    throw new Error("Handover OTP has not been generated");
+  }
+
+  if (verification.verified) {
+    throw new Error("Handover OTP has already been used");
+  }
+
+  if (isOtpExpired(verification.expiresAt)) {
+    throw new Error("Handover OTP has expired");
+  }
+
   if (verification.attempts >= MAX_OTP_ATTEMPTS) {
     throw new Error("Maximum OTP attempts exceeded");
   }
 
   if (hashOtp(otp) !== verification.otpHash) {
-    await prisma.sampleOtpVerification.update({
-      where: { verificationId: verification.verificationId },
-      data: { attempts: { increment: 1 } },
+    const attemptUpdate = await prisma.sampleOtpVerification.updateMany({
+      where: {
+        verificationId: verification.verificationId,
+        verified: false,
+        attempts: { lt: MAX_OTP_ATTEMPTS },
+        expiresAt: { gt: new Date() },
+      },
+      data: {
+        attempts: { increment: 1 },
+      },
     });
+
+    if (attemptUpdate.count === 0) {
+      throw new Error("Handover OTP is no longer valid");
+    }
+
     throw new Error("Invalid handover OTP");
   }
 
   const deliveryProof = await prisma.sampleEvidence.findFirst({
-    where: { sampleId, type: "DELIVERY_PROOF" },
+    where: {
+      sampleId,
+      type: "DELIVERY_PROOF",
+    },
     select: { evidenceId: true },
   });
 
   if (!deliveryProof) {
-    throw new Error("Upload delivery proof before verifying the lab handover");
+    throw new Error(
+      "Upload delivery proof before verifying the lab handover",
+    );
   }
 
   await prisma.$transaction(async (tx) => {
     const currentOtp = await tx.sampleOtpVerification.findUnique({
       where: { verificationId: verification.verificationId },
     });
-    const currentSample = await tx.sample.findUnique({ where: { sampleId } });
+
+    const currentSample = await tx.sample.findUnique({
+      where: { sampleId },
+    });
 
     if (
       !currentOtp ||
@@ -702,12 +857,18 @@ export const verifySampleHandoverOtp = async (
 
     await tx.sampleOtpVerification.update({
       where: { verificationId: currentOtp.verificationId },
-      data: { verified: true, verifiedAt: new Date() },
+      data: {
+        verified: true,
+        verifiedAt: new Date(),
+      },
     });
 
     await tx.sample.update({
       where: { sampleId },
-      data: { status: "RECEIVED", receivedAt: new Date() },
+      data: {
+        status: "RECEIVED",
+        receivedAt: new Date(),
+      },
     });
 
     await tx.sampleTracking.create({
@@ -720,7 +881,10 @@ export const verifySampleHandoverOtp = async (
   });
 
   await synchronizeAppointmentTestStatus(sample.appointmentTestId);
-  await synchronizeHomeCollectionStatus(homeCollection.homeCollectionId);
+
+  await synchronizeHomeCollectionStatus(
+    homeCollection.homeCollectionId,
+  );
 
   return {
     sampleId,
@@ -731,16 +895,21 @@ export const verifySampleHandoverOtp = async (
 };
 
 // =========================================================
-// UPDATE SAMPLE
+// INTERNAL SAMPLE STATUS UPDATE
+// Used by lab workflow and authorized collector workflow.
 // =========================================================
 
-export const updateSample = async (
+const updateSampleStatusInternal = async (
   sampleId: string,
   data: UpdateSampleInput,
+  allowCollectorTransition = false,
 ) => {
   const existingSample = await prisma.sample.findUnique({
     where: { sampleId },
-    include: { appointmentTest: true, homeCollection: true },
+    include: {
+      appointmentTest: true,
+      homeCollection: true,
+    },
   });
 
   if (!existingSample) throw new Error("Sample not found");
@@ -748,29 +917,57 @@ export const updateSample = async (
   const currentStatus = existingSample.status;
   const newStatus = data.status;
 
+  // Update only sample metadata without changing status.
   if (!newStatus) {
-    return prisma.sample.update({
+    const updated = await prisma.sample.update({
       where: { sampleId },
       data: {
-        ...(data.condition !== undefined && { condition: data.condition }),
+        ...(data.condition !== undefined && {
+          condition: data.condition,
+        }),
         ...(data.rejectionReason !== undefined && {
           rejectionReason: data.rejectionReason,
         }),
-        ...(data.notes !== undefined && { notes: data.notes }),
+        ...(data.notes !== undefined && {
+          notes: data.notes,
+        }),
       },
+    });
+
+    return prisma.sample.findUnique({
+      where: { sampleId: updated.sampleId },
       include: {
         appointmentTest: true,
         collector: true,
         homeCollection: true,
-        trackingEvents: { orderBy: { createdAt: "desc" } },
-        otpVerifications: true,
+        trackingEvents: {
+          orderBy: { createdAt: "desc" },
+        },
         evidence: true,
       },
     });
   }
 
+  // Home collection status changes must use the dedicated collector
+  // workflow or handover OTP workflow.
+  if (
+    existingSample.homeCollectionId &&
+    !allowCollectorTransition &&
+    (
+      newStatus === "COLLECTED" ||
+      newStatus === "IN_TRANSIT" ||
+      newStatus === "RECEIVED"
+    )
+  ) {
+    throw new Error(
+      "Home collection status must be updated through the collector workflow or lab handover OTP",
+    );
+  }
+
   if (currentStatus === "COMPLETED" || currentStatus === "REJECTED") {
-    throw new Error(`Cannot change a terminal sample status: ${currentStatus}`);
+    throw new Error(
+      `Cannot change a terminal sample status: ${currentStatus}`,
+    );
   }
 
   const allowedTransitions: Record<string, SampleStatus[]> = {
@@ -787,49 +984,72 @@ export const updateSample = async (
     );
   }
 
-  if (newStatus === "COLLECTED") {
+  // A home-collection sample can only be marked collected
+  // after collection OTP and photo verification.
+  if (newStatus === "COLLECTED" && existingSample.homeCollectionId) {
+    const otpVerified = await isCollectionOtpVerified(sampleId);
+
+    if (!otpVerified) {
+      throw new Error(
+        "Collection OTP verification is required for home collection",
+      );
+    }
+
     const collectionPhoto = await prisma.sampleEvidence.findFirst({
-      where: { sampleId, type: "COLLECTION_PHOTO" },
+      where: {
+        sampleId,
+        type: "COLLECTION_PHOTO",
+      },
       select: { evidenceId: true },
     });
 
     if (!collectionPhoto) {
-      throw new Error("Upload a collection photo before marking the sample as COLLECTED");
-    }
-
-    if (existingSample.homeCollectionId) {
-      const otpVerified = await isCollectionOtpVerified(sampleId);
-
-      if (!otpVerified) {
-        throw new Error("Collection OTP verification is required for home collection");
-      }
+      throw new Error(
+        "Upload a collection photo before marking the sample as COLLECTED",
+      );
     }
   }
 
   if (newStatus === "COMPLETED") {
     const report = await prisma.report.findUnique({
-      where: { appointmentTestId: existingSample.appointmentTestId },
-      include: { files: { select: { reportFileId: true } } },
+      where: {
+        appointmentTestId: existingSample.appointmentTestId,
+      },
+      include: {
+        files: {
+          select: { reportFileId: true },
+        },
+      },
     });
 
     if (!report) {
-      throw new Error("Upload a report for this appointment test before completing the sample");
+      throw new Error(
+        "Upload a report for this appointment test before completing the sample",
+      );
     }
 
     if (report.status !== "UPLOADED" && report.status !== "SENT") {
-      throw new Error("Report must be UPLOADED or SENT before completion");
+      throw new Error(
+        "Report must be UPLOADED or SENT before completion",
+      );
     }
 
     if (report.files.length === 0) {
-      throw new Error("Upload at least one report file before completing the sample");
+      throw new Error(
+        "Upload at least one report file before completing the sample",
+      );
     }
   }
 
   if (newStatus === "REJECTED" && !data.rejectionReason?.trim()) {
-    throw new Error("Rejection reason is required when rejecting a sample");
+    throw new Error(
+      "Rejection reason is required when rejecting a sample",
+    );
   }
 
-  const trackingStatus: Partial<Record<SampleStatus, SampleTrackingStatus>> = {
+  const trackingStatus: Partial<
+    Record<SampleStatus, SampleTrackingStatus>
+  > = {
     COLLECTED: "COLLECTED",
     IN_TRANSIT: "IN_TRANSIT",
     RECEIVED: "RECEIVED_AT_LAB",
@@ -841,27 +1061,41 @@ export const updateSample = async (
   const mappedTrackingStatus = trackingStatus[newStatus];
 
   if (!mappedTrackingStatus) {
-    throw new Error(`No tracking status mapping exists for ${newStatus}`);
+    throw new Error(
+      `No tracking status mapping exists for ${newStatus}`,
+    );
   }
 
   const updatedSample = await prisma.$transaction(async (tx) => {
-    const currentSample = await tx.sample.findUnique({ where: { sampleId } });
+    const currentSample = await tx.sample.findUnique({
+      where: { sampleId },
+    });
 
     if (!currentSample || currentSample.status !== currentStatus) {
-      throw new Error("Sample status changed while processing the request. Please retry.");
+      throw new Error(
+        "Sample status changed while processing the request. Please retry.",
+      );
     }
 
     const updated = await tx.sample.update({
       where: { sampleId },
       data: {
         status: newStatus,
-        ...(data.condition !== undefined && { condition: data.condition }),
+        ...(data.condition !== undefined && {
+          condition: data.condition,
+        }),
         ...(data.rejectionReason !== undefined && {
           rejectionReason: data.rejectionReason,
         }),
-        ...(data.notes !== undefined && { notes: data.notes }),
-        ...(newStatus === "COLLECTED" && { collectedAt: new Date() }),
-        ...(newStatus === "RECEIVED" && { receivedAt: new Date() }),
+        ...(data.notes !== undefined && {
+          notes: data.notes,
+        }),
+        ...(newStatus === "COLLECTED" && {
+          collectedAt: new Date(),
+        }),
+        ...(newStatus === "RECEIVED" && {
+          receivedAt: new Date(),
+        }),
       },
     });
 
@@ -877,7 +1111,10 @@ export const updateSample = async (
       },
     });
 
-    if (newStatus === "COLLECTED" && existingSample.homeCollectionId) {
+    if (
+      newStatus === "COLLECTED" &&
+      existingSample.homeCollectionId
+    ) {
       await tx.homeCollectionTracking.create({
         data: {
           homeCollectionId: existingSample.homeCollectionId,
@@ -890,13 +1127,20 @@ export const updateSample = async (
     return updated;
   });
 
-  await synchronizeAppointmentTestStatus(existingSample.appointmentTestId);
+  await synchronizeAppointmentTestStatus(
+    existingSample.appointmentTestId,
+  );
 
   if (existingSample.homeCollectionId) {
-    await synchronizeHomeCollectionStatus(existingSample.homeCollectionId);
+    await synchronizeHomeCollectionStatus(
+      existingSample.homeCollectionId,
+    );
 
     const homeTrackingStatus: Partial<
-      Record<SampleStatus, "EN_ROUTE" | "PROCESSING" | "REPORT_READY">
+      Record<
+        SampleStatus,
+        "EN_ROUTE" | "PROCESSING" | "REPORT_READY"
+      >
     > = {
       IN_TRANSIT: "EN_ROUTE",
       PROCESSING: "PROCESSING",
@@ -921,17 +1165,30 @@ export const updateSample = async (
     }
   }
 
+  // No OTP verification records or hashes are included.
   return prisma.sample.findUnique({
     where: { sampleId: updatedSample.sampleId },
     include: {
       appointmentTest: true,
       collector: true,
       homeCollection: true,
-      trackingEvents: { orderBy: { createdAt: "desc" } },
-      otpVerifications: { orderBy: { generatedAt: "desc" } },
+      trackingEvents: {
+        orderBy: { createdAt: "desc" },
+      },
       evidence: true,
     },
   });
+};
+
+// =========================================================
+// PUBLIC UPDATE SAMPLE - LAB WORKFLOW
+// =========================================================
+
+export const updateSample = async (
+  sampleId: string,
+  data: UpdateSampleInput,
+) => {
+  return updateSampleStatusInternal(sampleId, data, false);
 };
 
 // =========================================================
@@ -951,27 +1208,44 @@ export const deleteSample = async (sampleId: string) => {
   if (!sample) throw new Error("Sample not found");
 
   if (sample.status !== "PENDING_COLLECTION") {
-    throw new Error("Only samples awaiting collection can be deleted");
+    throw new Error(
+      "Only samples awaiting collection can be deleted",
+    );
   }
 
   if (sample.otpVerifications.length > 0) {
-    throw new Error("Cannot delete a sample after an OTP has been generated");
+    throw new Error(
+      "Cannot delete a sample after an OTP has been generated",
+    );
   }
 
   if (sample.evidence.length > 0) {
-    throw new Error("Cannot delete a sample that has evidence attached");
+    throw new Error(
+      "Cannot delete a sample that has evidence attached",
+    );
   }
 
-  if (sample.trackingEvents.some((event) => event.status !== "BARCODE_SCANNED")) {
-    throw new Error("Cannot delete a sample after its tracking workflow has started");
+  if (
+    sample.trackingEvents.some(
+      (event) => event.status !== "BARCODE_SCANNED",
+    )
+  ) {
+    throw new Error(
+      "Cannot delete a sample after its tracking workflow has started",
+    );
   }
 
   return prisma.$transaction(async (tx) => {
     await tx.sampleTracking.deleteMany({
-      where: { sampleId, status: "BARCODE_SCANNED" },
+      where: {
+        sampleId,
+        status: "BARCODE_SCANNED",
+      },
     });
 
-    return tx.sample.delete({ where: { sampleId } });
+    return tx.sample.delete({
+      where: { sampleId },
+    });
   });
 };
 
@@ -989,26 +1263,34 @@ export const verifyCollectorCollectionOtp = async (
     include: {
       homeCollection: {
         include: {
-          collectorAssignment: { include: { collector: true } },
+          collectorAssignment: {
+            include: { collector: true },
+          },
         },
       },
     },
   });
 
   if (!sample) throw new Error("Sample not found");
+
   if (!sample.homeCollectionId || !sample.homeCollection) {
     throw new Error("Sample is not part of a home collection");
   }
 
   const assignment = sample.homeCollection.collectorAssignment;
 
-  if (!assignment) throw new Error("No collector assignment found");
+  if (!assignment) {
+    throw new Error("No collector assignment found");
+  }
+
   if (assignment.collector.userId !== userId) {
     throw new Error("Sample is not assigned to this collector");
   }
+
   if (assignment.status !== "ACCEPTED") {
     throw new Error("Collector must accept the assignment first");
   }
+
   if (assignment.collector.status !== "ACTIVE") {
     throw new Error("Collector is inactive");
   }
@@ -1026,14 +1308,18 @@ export const uploadCollectorSampleEvidence = async (
   file: Express.Multer.File,
   type: EvidenceType,
 ) => {
-  if (!file?.filename) throw new Error("Evidence file is required");
+  if (!file?.filename) {
+    throw new Error("Evidence file is required");
+  }
 
   const sample = await prisma.sample.findUnique({
     where: { sampleId },
     include: {
       homeCollection: {
         include: {
-          collectorAssignment: { include: { collector: true } },
+          collectorAssignment: {
+            include: { collector: true },
+          },
         },
       },
     },
@@ -1046,31 +1332,43 @@ export const uploadCollectorSampleEvidence = async (
   if (!sample.homeCollection || !assignment) {
     throw new Error("No collector assignment found");
   }
+
   if (assignment.collector.userId !== userId) {
     throw new Error("Sample is not assigned to this collector");
   }
+
   if (assignment.status !== "ACCEPTED") {
     throw new Error("Collector must accept the assignment first");
   }
+
   if (assignment.collector.status !== "ACTIVE") {
     throw new Error("Collector is inactive");
   }
+
   if (!["image/jpeg", "image/png"].includes(file.mimetype)) {
     throw new Error("Only JPG and PNG images are allowed");
   }
 
   if (type === "COLLECTION_PHOTO") {
     if (sample.status !== "PENDING_COLLECTION") {
-      throw new Error("Collection photo must be uploaded before marking the sample COLLECTED");
+      throw new Error(
+        "Collection photo must be uploaded before marking the sample COLLECTED",
+      );
     }
 
     if (!(await isCollectionOtpVerified(sampleId))) {
-      throw new Error("Verify the collection OTP before uploading the collection photo");
+      throw new Error(
+        "Verify the collection OTP before uploading the collection photo",
+      );
     }
   }
 
-  if (type === "DELIVERY_PROOF" && sample.status !== "IN_TRANSIT") {
-    throw new Error("Delivery proof can only be uploaded while the sample is IN_TRANSIT");
+  if (type === "DELIVERY_PROOF") {
+    if (sample.status !== "IN_TRANSIT") {
+      throw new Error(
+        "Delivery proof can only be uploaded while the sample is IN_TRANSIT",
+      );
+    }
   }
 
   const existingEvidence = await prisma.sampleEvidence.findFirst({
@@ -1079,7 +1377,9 @@ export const uploadCollectorSampleEvidence = async (
   });
 
   if (existingEvidence) {
-    throw new Error(`Evidence of type ${type} has already been uploaded for this sample`);
+    throw new Error(
+      `Evidence of type ${type} has already been uploaded for this sample`,
+    );
   }
 
   return prisma.sampleEvidence.create({
@@ -1111,33 +1411,89 @@ export const updateCollectorSampleStatus = async (
     include: {
       homeCollection: {
         include: {
-          collectorAssignment: { include: { collector: true } },
+          collectorAssignment: {
+            include: { collector: true },
+          },
         },
       },
     },
   });
 
   if (!sample) throw new Error("Sample not found");
+
   if (!sample.homeCollectionId || !sample.homeCollection) {
     throw new Error("Sample is not part of a home collection");
   }
 
   const assignment = sample.homeCollection.collectorAssignment;
 
-  if (!assignment) throw new Error("No collector assignment found");
+  if (!assignment) {
+    throw new Error("No collector assignment found");
+  }
+
   if (assignment.collector.userId !== userId) {
     throw new Error("Sample is not assigned to this collector");
   }
+
   if (assignment.status !== "ACCEPTED") {
     throw new Error("Collector must accept the assignment first");
   }
+
   if (assignment.collector.status !== "ACTIVE") {
     throw new Error("Collector is inactive");
   }
 
-  if (data.status !== "COLLECTED" && data.status !== "IN_TRANSIT") {
-    throw new Error("Collector can only set status to COLLECTED or IN_TRANSIT");
+  if (data.status === "COLLECTED") {
+    if (sample.status !== "PENDING_COLLECTION") {
+      throw new Error(
+        "Only pending samples can be marked as collected",
+      );
+    }
+
+    if (!(await isCollectionOtpVerified(sampleId))) {
+      throw new Error(
+        "Verify collection OTP before marking the sample collected",
+      );
+    }
+
+    const collectionPhoto = await prisma.sampleEvidence.findFirst({
+      where: {
+        sampleId,
+        type: "COLLECTION_PHOTO",
+      },
+      select: { evidenceId: true },
+    });
+
+    if (!collectionPhoto) {
+      throw new Error(
+        "Upload collection photo before marking the sample collected",
+      );
+    }
   }
 
-  return updateSample(sampleId, data);
+  if (data.status === "IN_TRANSIT") {
+    if (sample.status !== "COLLECTED") {
+      throw new Error(
+        "Only collected samples can be marked as in transit",
+      );
+    }
+
+    const collectionPhoto = await prisma.sampleEvidence.findFirst({
+      where: {
+        sampleId,
+        type: "COLLECTION_PHOTO",
+      },
+      select: { evidenceId: true },
+    });
+
+    if (!collectionPhoto) {
+      throw new Error(
+        "Collection photo is required before transit",
+      );
+    }
+  }
+
+  // Use the internal transition helper after collector authorization.
+  // The public updateSample function intentionally blocks these transitions.
+  return updateSampleStatusInternal(sampleId, data, true);
 };

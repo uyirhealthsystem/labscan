@@ -1,8 +1,8 @@
-
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import { unlink } from "node:fs/promises";
-import { apiError } from '../utils/apiError';
+
 import { asyncHandler } from "../utils/asyncHandler";
+
 import {
   createSample,
   getSamples,
@@ -12,32 +12,52 @@ import {
   updateSample,
   deleteSample,
   generateCollectionOtp,
-  verifyCollectionOtp,
   verifyCollectorCollectionOtp,
   uploadCollectorSampleEvidence,
   updateCollectorSampleStatus,
-    generateSampleHandoverOtp,
+  generateSampleHandoverOtp,
   verifySampleHandoverOtp,
 } from "../services/sample.service";
 
-import {
-  getRequestedLanguage,
-  translateResponse,
-} from "../utils/translate.response";
+type AuthenticatedRequest = Request & {
+  userId?: string;
+};
 
-// =========================================================
-// CREATE SAMPLE
-// =========================================================
+const getUserId = (req: Request): string => {
+  const userId = (req as AuthenticatedRequest).userId;
 
-export const createSampleController = async (
-  req: Request,
+  if (!userId) {
+    throw new Error("Authenticated user ID is missing");
+  }
+
+  return userId;
+};
+
+const getParam = (req: Request, name: string): string =>
+  String(req.params[name] ?? "");
+
+const getBodyString = (value: unknown): string =>
+  typeof value === "string" ? value.trim() : "";
+
+const sendSuccess = (
   res: Response,
+  statusCode: number,
+  message: string,
+  data: unknown,
 ) => {
-  try {
+  return res.status(statusCode).json({
+    success: true,
+    message,
+    data,
+  });
+};
+
+// CREATE SAMPLE
+export const createSampleController = asyncHandler(
+  async (req: Request, res: Response) => {
     const {
       appointmentTestId,
       homeCollectionId,
-      collectorId,
       barcode,
       sampleType,
       containerType,
@@ -45,31 +65,20 @@ export const createSampleController = async (
       notes,
     } = req.body;
 
-    if (!appointmentTestId) {
+    if (
+      !appointmentTestId ||
+      !barcode ||
+      !sampleType
+    ) {
       return res.status(400).json({
-        status: "error",
-        message: "appointmentTestId is required",
-      });
-    }
-
-    if (!barcode) {
-      return res.status(400).json({
-        status: "error",
-        message: "barcode is required",
-      });
-    }
-
-    if (!sampleType) {
-      return res.status(400).json({
-        status: "error",
-        message: "sampleType is required",
+        success: false,
+        message: "appointmentTestId, barcode and sampleType are required",
       });
     }
 
     const sample = await createSample({
       appointmentTestId,
       homeCollectionId,
-      collectorId,
       barcode,
       sampleType,
       containerType,
@@ -77,351 +86,86 @@ export const createSampleController = async (
       notes,
     });
 
-    const language = getRequestedLanguage(req);
+    return sendSuccess(res, 201, "Sample created successfully", sample);
+  },
+);
 
-    return res.status(201).json({
-      status: "success",
-      data: await translateResponse(sample, language),
-    });
-  } catch (error: unknown) {
-    return res.status(400).json({
-      status: "error",
-      message:
-        error instanceof Error ? error.message : "Failed to create sample",
-    });
-  }
-};
-
-// =========================================================
 // GET ALL SAMPLES
-// =========================================================
-
-export const getSamplesController = async (
-  req: Request,
-  res: Response,
-) => {
-  try {
+export const getSamplesController = asyncHandler(
+  async (_req: Request, res: Response) => {
     const samples = await getSamples();
-    const language = getRequestedLanguage(req);
 
-    return res.status(200).json({
-      status: "success",
-      data: await translateResponse(samples, language),
-    });
-  } catch (error: unknown) {
-    return res.status(400).json({
-      status: "error",
-      message:
-        error instanceof Error ? error.message : "Failed to get samples",
-    });
-  }
-};
+    return sendSuccess(res, 200, "Samples fetched successfully", samples);
+  },
+);
 
-// =========================================================
 // GET SAMPLES BY APPOINTMENT TEST
-// =========================================================
-
-export const getSamplesByAppointmentTestController = async (
-  req: Request,
-  res: Response,
-) => {
-  try {
-    const appointmentTestId = String(req.params.appointmentTestId);
-
-    const samples =
-      await getSamplesByAppointmentTest(appointmentTestId);
-
-    const language = getRequestedLanguage(req);
-
-    return res.status(200).json({
-      status: "success",
-      data: await translateResponse(samples, language),
-    });
-  } catch (error: unknown) {
-    return res.status(400).json({
-      status: "error",
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to get samples for appointment test",
-    });
-  }
-};
-
-
-export const generateSampleHandoverOtpController = asyncHandler(
+export const getSamplesByAppointmentTestController = asyncHandler(
   async (req: Request, res: Response) => {
-    const labUserId = req.headers["x-user-id"];
+    const appointmentTestId = getParam(req, "appointmentTestId");
 
-    if (typeof labUserId !== "string" || !labUserId) {
-      throw new apiError(401, "Authenticated lab user is required");
-    }
+    const samples = await getSamplesByAppointmentTest(appointmentTestId);
 
-    const result = await generateSampleHandoverOtp(
-      req.params.sampleId as string,
-      labUserId,
+    return sendSuccess(
+      res,
+      200,
+      "Appointment test samples fetched successfully",
+      samples,
     );
-
-    res.status(200).json({
-      success: true,
-      message: result.message,
-      data: result,
-    });
   },
 );
 
-export const verifySampleHandoverOtpController = asyncHandler(
-  async (req: Request, res: Response) => {
-    const userId = req.headers["x-user-id"];
-    const { otp } = req.body;
-
-    if (typeof userId !== "string" || !userId) {
-      throw new apiError(401, "Authenticated collector is required");
-    }
-
-    if (typeof otp !== "string" || !/^\d{6}$/.test(otp)) {
-      throw new apiError(400, "A valid six-digit OTP is required");
-    }
-
-    const result = await verifySampleHandoverOtp(
-      req.params.sampleId as string,
-      otp,
-      userId,
-    );
-
-    res.status(200).json({
-      success: true,
-      message: result.message,
-      data: result,
-    });
-  },
-);
-
-
-// =========================================================
-// GET SAMPLE BY BARCODE
-// =========================================================
-
-export const getSampleByBarcodeController = async (
-  req: Request,
-  res: Response,
-) => {
-  try {
-    const barcode = String(req.params.barcode);
-    const sample = await getSampleByBarcode(barcode);
-
-    const language = getRequestedLanguage(req);
-
-    return res.status(200).json({
-      status: "success",
-      data: await translateResponse(sample, language),
-    });
-  } catch (error: unknown) {
-    return res.status(404).json({
-      status: "error",
-      message:
-        error instanceof Error ? error.message : "Sample not found",
-    });
-  }
-};
-
-// =========================================================
 // GET SAMPLE BY ID
-// =========================================================
+export const getSampleByIdController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const sampleId = getParam(req, "sampleId");
 
-export const getSampleByIdController = async (
-  req: Request,
-  res: Response,
-) => {
-  try {
-    const sampleId = String(req.params.sampleId);
     const sample = await getSampleById(sampleId);
 
-    const language = getRequestedLanguage(req);
+    return sendSuccess(res, 200, "Sample fetched successfully", sample);
+  },
+);
 
-    return res.status(200).json({
-      status: "success",
-      data: await translateResponse(sample, language),
-    });
-  } catch (error: unknown) {
-    return res.status(404).json({
-      status: "error",
-      message:
-        error instanceof Error ? error.message : "Sample not found",
-    });
-  }
-};
+// GET SAMPLE BY BARCODE
+export const getSampleByBarcodeController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const barcode = getParam(req, "barcode");
 
-// =========================================================
-// UPDATE SAMPLE
-// =========================================================
+    const sample = await getSampleByBarcode(barcode);
 
-export const updateSampleController = async (
-  req: Request,
-  res: Response,
-) => {
-  try {
-    const sampleId = String(req.params.sampleId);
+    return sendSuccess(res, 200, "Sample fetched successfully", sample);
+  },
+);
 
-    const {
-      status,
-      condition,
-      rejectionReason,
-      notes,
-    } = req.body;
-
-    // collectedAt and receivedAt are intentionally not accepted
-    // from the client. The service sets them automatically:
-    // collectedAt -> when status becomes COLLECTED
-    // receivedAt  -> when status becomes RECEIVED
-
-    const sample = await updateSample(sampleId, {
-      status,
-      condition,
-      rejectionReason,
-      notes,
-    });
-
-    const language = getRequestedLanguage(req);
-
-    return res.status(200).json({
-      status: "success",
-      data: await translateResponse(sample, language),
-    });
-  } catch (error: unknown) {
-    return res.status(400).json({
-      status: "error",
-      message:
-        error instanceof Error ? error.message : "Failed to update sample",
-    });
-  }
-};
-
-// =========================================================
-// DELETE SAMPLE
-// =========================================================
-
-export const deleteSampleController = async (
-  req: Request,
-  res: Response,
-) => {
-  try {
-    const sampleId = String(req.params.sampleId);
-
-    await deleteSample(sampleId);
-
-    return res.status(200).json({
-      status: "success",
-      message: "Sample deleted successfully",
-    });
-  } catch (error: unknown) {
-    return res.status(400).json({
-      status: "error",
-      message:
-        error instanceof Error ? error.message : "Failed to delete sample",
-    });
-  }
-};
-
-// =========================================================
 // GENERATE COLLECTION OTP
-// =========================================================
+export const generateCollectionOtpController = asyncHandler(
+  async (req: Request, res: Response) => {
+    getUserId(req);
 
-export const generateCollectionOtpController = async (
-  req: Request,
-  res: Response,
-) => {
-  try {
-    const sampleId = String(req.params.sampleId);
+    const sampleId = getParam(req, "sampleId");
+
     const result = await generateCollectionOtp(sampleId);
 
-    // Do not translate OTP values or verification details.
-    return res.status(200).json({
-      status: "success",
-      data: result,
-    });
-  } catch (error: unknown) {
-    return res.status(400).json({
-      status: "error",
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to generate collection OTP",
-    });
-  }
-};
-
-// =========================================================
-// VERIFY COLLECTION OTP
-// =========================================================
-
-export const verifyCollectionOtpController = async (
-  req: Request,
-  res: Response,
-) => {
-  try {
-    const sampleId = String(req.params.sampleId);
-    const { otp } = req.body;
-
-    if (!otp) {
-      return res.status(400).json({
-        status: "error",
-        message: "OTP is required",
-      });
-    }
-
-    const result = await verifyCollectionOtp(
-      sampleId,
-      String(otp),
+    return sendSuccess(
+      res,
+      200,
+      "Collection OTP generated successfully",
+      result,
     );
+  },
+);
 
-    // Keep OTP verification result unchanged.
-    return res.status(200).json({
-      status: "success",
-      data: result,
-    });
-  } catch (error: unknown) {
-    return res.status(400).json({
-      status: "error",
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to verify collection OTP",
-    });
-  }
-};
+// VERIFY COLLECTION OTP - COLLECTOR ONLY
+export const verifyCollectorCollectionOtpController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const sampleId = getParam(req, "sampleId");
+    const otp = getBodyString(req.body.otp);
 
-// =========================================================
-// VERIFY COLLECTOR COLLECTION OTP
-// =========================================================
-
-export const verifyCollectorCollectionOtpController = async (
-  req: Request,
-  res: Response,
-) => {
-  try {
-    const sampleId = req.params.sampleId;
-    const userId = req.headers["x-user-id"];
-    const { otp } = req.body;
-
-    if (typeof sampleId !== "string" || !sampleId) {
+    if (!/^\d{6}$/.test(otp)) {
       return res.status(400).json({
-        status: "error",
-        message: "Valid sample ID is required",
-      });
-    }
-
-    if (typeof userId !== "string" || !userId) {
-      return res.status(401).json({
-        status: "error",
-        message: "Valid user ID is required",
-      });
-    }
-
-    if (typeof otp !== "string" || !/^\d{6}$/.test(otp)) {
-      return res.status(400).json({
-        status: "error",
-        message: "A valid six-digit OTP is required",
+        success: false,
+        message: "A valid 6-digit OTP is required",
       });
     }
 
@@ -431,130 +175,70 @@ export const verifyCollectorCollectionOtpController = async (
       userId,
     );
 
-    return res.status(200).json({
-      status: "success",
-      data: result,
-    });
-  } catch (error: unknown) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Something went wrong";
+    return sendSuccess(
+      res,
+      200,
+      "Collection OTP verified successfully",
+      result,
+    );
+  },
+);
 
-    const statusCode =
-      message === "Sample not found" ||
-      message === "No collector assignment found"
-        ? 404
-        : message === "Sample is not assigned to this collector"
-          ? 403
-          : message === "Collector must accept the assignment first"
-            ? 409
-            : 400;
+// GENERATE LAB HANDOVER OTP
+export const generateSampleHandoverOtpController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const labUserId = getUserId(req);
+    const sampleId = getParam(req, "sampleId");
 
-    return res.status(statusCode).json({
-      status: "error",
-      message,
-    });
-  }
-};
-
-// =========================================================
-// UPLOAD COLLECTOR SAMPLE EVIDENCE
-// =========================================================
-
-export const uploadCollectorSampleEvidenceController = async (
-  req: Request,
-  res: Response,
-) => {
-  try {
-    const sampleId = req.params.sampleId;
-    const userId = req.headers["x-user-id"];
-    const type = req.body.type;
-
-    if (typeof sampleId !== "string" || !sampleId) {
-      return res.status(400).json({
-        status: "error",
-        message: "Valid sample ID is required",
-      });
-    }
-
-    if (typeof userId !== "string" || !userId) {
-      return res.status(401).json({
-        status: "error",
-        message: "Valid user ID is required",
-      });
-    }
-
-    if (!req.file) {
-      return res.status(400).json({
-        status: "error",
-        message: "Image file is required",
-      });
-    }
-
-    if (
-      type !== "COLLECTION_PHOTO" &&
-      type !== "DELIVERY_PROOF"
-    ) {
-      return res.status(400).json({
-        status: "error",
-        message: "type must be COLLECTION_PHOTO or DELIVERY_PROOF",
-      });
-    }
-
-    const evidence = await uploadCollectorSampleEvidence(
+    const result = await generateSampleHandoverOtp(
       sampleId,
-      userId,
-      req.file,
-      type,
+      labUserId,
     );
 
-    const language = getRequestedLanguage(req);
+    return sendSuccess(
+      res,
+      200,
+      "Sample handover OTP generated successfully",
+      result,
+    );
+  },
+);
 
-    return res.status(201).json({
-      status: "success",
-      message: "Evidence uploaded successfully",
-      data: await translateResponse(evidence, language),
-    });
-  } catch (error: unknown) {
-    // Remove the uploaded file if validation or ownership checks fail.
-    if (req.file?.path) {
-      await unlink(req.file.path).catch(() => undefined);
+// VERIFY LAB HANDOVER OTP - COLLECTOR
+export const verifySampleHandoverOtpController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const sampleId = getParam(req, "sampleId");
+    const otp = getBodyString(req.body.otp);
+
+    if (!/^\d{6}$/.test(otp)) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid 6-digit OTP is required",
+      });
     }
 
-    const message =
-      error instanceof Error ? error.message : "Upload failed";
+    const result = await verifySampleHandoverOtp(
+      sampleId,
+      otp,
+      userId,
+    );
 
-    const status =
-      message === "Sample not found" ||
-      message === "No collector assignment found"
-        ? 404
-        : message.includes("not assigned") ||
-            message.includes("inactive")
-          ? 403
-          : message.includes("must") ||
-              message.includes("Only JPG")
-            ? 400
-            : 500;
+    return sendSuccess(
+      res,
+      200,
+      "Sample handed over to lab successfully",
+      result,
+    );
+  },
+);
 
-    return res.status(status).json({
-      status: "error",
-      message,
-    });
-  }
-};
+// UPDATE SAMPLE - LAB WORKFLOW
+export const updateSampleController = asyncHandler(
+  async (req: Request, res: Response) => {
+    getUserId(req);
 
-// =========================================================
-// UPDATE COLLECTOR SAMPLE STATUS
-// =========================================================
-
-export const updateCollectorSampleStatusController = async (
-  req: Request,
-  res: Response,
-) => {
-  try {
-    const sampleId = req.params.sampleId as string;
-    const userId = req.headers["x-user-id"];
+    const sampleId = getParam(req, "sampleId");
 
     const {
       status,
@@ -563,70 +247,124 @@ export const updateCollectorSampleStatusController = async (
       notes,
     } = req.body;
 
-    if (!sampleId) {
+    const updatedSample = await updateSample(sampleId, {
+      status,
+      condition,
+      rejectionReason,
+      notes,
+    });
+
+    return sendSuccess(
+      res,
+      200,
+      "Sample updated successfully",
+      updatedSample,
+    );
+  },
+);
+
+// DELETE SAMPLE
+export const deleteSampleController = asyncHandler(
+  async (req: Request, res: Response) => {
+    getUserId(req);
+
+    const sampleId = getParam(req, "sampleId");
+
+    const deletedSample = await deleteSample(sampleId);
+
+    return sendSuccess(
+      res,
+      200,
+      "Sample deleted successfully",
+      deletedSample,
+    );
+  },
+);
+
+// COLLECTOR UPLOAD EVIDENCE
+export const uploadCollectorSampleEvidenceController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const sampleId = getParam(req, "sampleId");
+    const file = req.file;
+    const type = getBodyString(req.body.type);
+
+    if (!file) {
       return res.status(400).json({
-        status: "error",
-        message: "Sample ID is required",
+        success: false,
+        message: "Evidence file is required",
       });
     }
 
-    if (typeof userId !== "string" || !userId) {
-      return res.status(401).json({
-        status: "error",
-        message: "Valid user ID is required",
+    if (
+      type !== "COLLECTION_PHOTO" &&
+      type !== "DELIVERY_PROOF"
+    ) {
+      await unlink(file.path).catch(() => undefined);
+
+      return res.status(400).json({
+        success: false,
+        message: "Evidence type must be COLLECTION_PHOTO or DELIVERY_PROOF",
       });
     }
+
+    try {
+      const evidence = await uploadCollectorSampleEvidence(
+        sampleId,
+        userId,
+        file,
+        type,
+      );
+
+      return sendSuccess(
+        res,
+        201,
+        "Sample evidence uploaded successfully",
+        evidence,
+      );
+    } catch (error) {
+      await unlink(file.path).catch(() => undefined);
+      throw error;
+    }
+  },
+);
+
+// COLLECTOR UPDATE SAMPLE STATUS
+export const updateCollectorSampleStatusController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const sampleId = getParam(req, "sampleId");
+
+    const {
+      status,
+      condition,
+      rejectionReason,
+      notes,
+    } = req.body;
 
     if (status !== "COLLECTED" && status !== "IN_TRANSIT") {
       return res.status(400).json({
-        status: "error",
-        message:
-          "Collector can only update status to COLLECTED or IN_TRANSIT",
+        success: false,
+        message: "Collector can only set COLLECTED or IN_TRANSIT status",
       });
     }
 
-    const result = await updateCollectorSampleStatus(
+    const updatedSample = await updateCollectorSampleStatus(
       sampleId,
       userId,
       {
-        status: status as "COLLECTED" | "IN_TRANSIT",
+        status,
         condition,
         rejectionReason,
         notes,
       },
     );
 
-    const language = getRequestedLanguage(req);
-
-    return res.status(200).json({
-      status: "success",
-      message: "Sample status updated successfully",
-      data: await translateResponse(result, language),
-    });
-  } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "Update failed";
-
-    let statusCode = 400;
-
-    if (
-      message === "Sample not found" ||
-      message === "No collector assignment found"
-    ) {
-      statusCode = 404;
-    } else if (
-      message.includes("not assigned") ||
-      message.includes("inactive")
-    ) {
-      statusCode = 403;
-    } else if (message.includes("must accept")) {
-      statusCode = 409;
-    }
-
-    return res.status(statusCode).json({
-      status: "error",
-      message,
-    });
-  }
-};
-
+    return sendSuccess(
+      res,
+      200,
+      "Collector sample status updated successfully",
+      updatedSample,
+    );
+  },
+);
