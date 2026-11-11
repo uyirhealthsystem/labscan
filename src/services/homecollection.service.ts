@@ -19,6 +19,21 @@ const ACTIVE_COLLECTION_STATUSES = [
   "IN_LAB",
 ] as const;
 
+const PATIENT_ACTIVE_HOME_COLLECTION_STATUSES = [
+  "PENDING",
+  "ASSIGNED",
+  "EN_ROUTE",
+  "SAMPLE_COLLECTED",
+  "IN_LAB",
+  "PROCESSING",
+  "REPORT_READY",
+] as const;
+
+const PATIENT_HOME_COLLECTION_HISTORY_STATUSES = [
+  "COMPLETED",
+  "CANCELLED",
+] as const;
+
 // =========================================================
 // INPUT TYPES
 // =========================================================
@@ -225,6 +240,7 @@ const appointmentWithLabAndTestReports = {
 
 const homeCollectionDetailsInclude = {
   appointment: appointmentWithLabAndTestReports,
+  confirmation: true,
   collectorAssignment: {
     include: {
       collector: true,
@@ -280,6 +296,41 @@ const collectorBookingInclude = {
 } as const;
 
 // =========================================================
+// PATIENT HOME COLLECTION INCLUDE
+// =========================================================
+
+const patientHomeCollectionInclude = {
+  appointment: appointmentWithLabAndTestReports,
+  collectorAssignment: {
+    include: {
+      collector: {
+        select: {
+          collectorId: true,
+          name: true,
+          phone: true,
+          role: true,
+          collectorType: true,
+        },
+      },
+    },
+  },
+  trackingEvents: {
+    orderBy: {
+      createdAt: "asc" as const,
+    },
+  },
+  samples: {
+    include: {
+      trackingEvents: {
+        orderBy: {
+          createdAt: "asc" as const,
+        },
+      },
+      evidence: true,
+    },
+  },
+} as const;
+// =========================================================
 // DATABASE LOCK HELPERS
 // =========================================================
 
@@ -316,25 +367,6 @@ function getFreshLocationThreshold() {
   );
 }
 
-async function getEligibleLabCollectors(
-  labId: string,
-) {
-  return prisma.collector.findMany({
-    where: {
-      collectorType: "LAB",
-      labId,
-      status: "ACTIVE",
-      qualificationStatus: "VERIFIED",
-      isAvailable: true,
-      latitude: { not: null },
-      longitude: { not: null },
-      lastLocationAt: {
-        gte: getFreshLocationThreshold(),
-      },
-    },
-  });
-}
-
 async function getEligibleIndependentCollectors() {
   return prisma.collector.findMany({
     where: {
@@ -350,60 +382,6 @@ async function getEligibleIndependentCollectors() {
       },
     },
   });
-}
-
-async function createLabCollectorOffers(
-  tx: any,
-  homeCollection: any,
-  labId: string,
-) {
-  const collectors = await tx.collector.findMany({
-    where: {
-      collectorType: "LAB",
-      labId,
-      status: "ACTIVE",
-      qualificationStatus: "VERIFIED",
-      isAvailable: true,
-      latitude: { not: null },
-      longitude: { not: null },
-      lastLocationAt: {
-        gte: getFreshLocationThreshold(),
-      },
-    },
-  });
-
-  if (
-    homeCollection.latitude === null ||
-    homeCollection.longitude === null
-  ) {
-    throw new Error("Home collection location is missing");
-  }
-
-  const expiresAt = new Date(
-    homeCollection.matchingStartedAt.getTime() +
-      LAB_OFFER_WINDOW_MINUTES * 60 * 1000,
-  );
-
-  const offers = collectors.map((collector: any) => ({
-    homeCollectionId: homeCollection.homeCollectionId,
-    collectorId: collector.collectorId,
-    distanceKm: calculateDistanceKm(
-      homeCollection.latitude,
-      homeCollection.longitude,
-      collector.latitude,
-      collector.longitude,
-    ),
-    expiresAt,
-  }));
-
-  if (offers.length > 0) {
-    await tx.collectorBookingOffer.createMany({
-      data: offers,
-      skipDuplicates: true,
-    });
-  }
-
-  return offers.length;
 }
 
 async function createIndependentCollectorOffers(
@@ -494,47 +472,28 @@ export async function createHomeCollection(
   validateCoordinates(data.latitude, data.longitude);
 
   const appointment = await prisma.appointment.findUnique({
-    where: {
-      appointmentId: data.appointmentId,
-    },
+    where: { appointmentId: data.appointmentId },
+    include: { lab: true },
   });
 
-  if (!appointment) {
-    throw new Error("Appointment not found");
-  }
-
+  if (!appointment) throw new Error("Appointment not found");
   if (appointment.appointmentType !== "LAB") {
-    throw new Error(
-      "Home collection is only available for LAB appointments",
-    );
+    throw new Error("Home collection is only available for LAB appointments");
   }
-
   if (appointment.appointmentMode !== "HOME") {
-    throw new Error(
-      "Home collection can only be created for HOME appointments",
-    );
+    throw new Error("Home collection can only be created for HOME appointments");
   }
-
   assertAppointmentCanHaveHomeCollection(appointment.status);
-
-  if (!appointment.labId) {
-    throw new Error("Appointment does not have a selected lab");
-  }
+  if (!appointment.labId) throw new Error("Appointment does not have a selected lab");
 
   return prisma.$transaction(async (tx) => {
     const existing = await tx.homeCollection.findUnique({
-      where: {
-        appointmentId: data.appointmentId,
-      },
+      where: { appointmentId: data.appointmentId },
+      include: { confirmation: true },
     });
-
     if (existing) {
-      throw new Error(
-        "Home collection already exists for this appointment",
-      );
+      throw new Error("Home collection already exists for this appointment");
     }
-
-    const now = new Date();
 
     const homeCollection = await tx.homeCollection.create({
       data: {
@@ -545,28 +504,193 @@ export async function createHomeCollection(
         specialInstructions: data.specialInstructions,
         status: "PENDING",
         allocationStage: "LAB_COLLECTORS",
-        matchingStartedAt: now,
+        // The lab timer starts only after its acknowledgement.
+        matchingStartedAt: null,
+        assignmentDeadline: null,
+        confirmation: {
+          create: {
+            status: "PENDING",
+            recipientPhone: null,
+            payload: {
+              appointmentId: appointment.appointmentId,
+              labId: appointment.labId,
+              address: data.address,
+              bookingCreatedAt: new Date().toISOString(),
+            },
+          },
+        },
       },
+      include: { confirmation: true },
     });
-
-    const offersCreated = await createLabCollectorOffers(
-      tx,
-      homeCollection,
-      appointment.labId!,
-    );
 
     return {
       ...homeCollection,
-      labCollectorOffersCreated: offersCreated,
       allocationStage: "LAB_COLLECTORS",
-      escalationAt: new Date(
-        now.getTime() + LAB_OFFER_WINDOW_MINUTES * 60 * 1000,
-      ),
+      timerStarted: false,
+      message: "Booking created. The lab must acknowledge it to start the five-minute assignment window.",
     };
-  }, {
-    maxWait: 10000,
-    timeout: 20000,
-  });
+  }, { maxWait: 10000, timeout: 20000 });
+}
+
+/**
+ * Lab acknowledges receipt of a citizen's home-collection booking.
+ * This is the only operation that starts the five-minute lab assignment timer.
+ */
+export async function acknowledgeHomeCollectionReceived(
+  homeCollectionId: string,
+  labUserId: string,
+) {
+  return prisma.$transaction(async (tx) => {
+    await lockHomeCollection(tx, homeCollectionId);
+
+    const lab = await tx.lab.findFirst({
+      where: { labUserId },
+      select: { labId: true },
+    });
+    if (!lab) throw new Error("Lab not found for the logged-in user");
+
+    const collection = await tx.homeCollection.findUnique({
+      where: { homeCollectionId },
+      include: { appointment: true, collectorAssignment: true },
+    });
+    if (!collection) throw new Error("Home collection not found");
+    if (collection.appointment.labId !== lab.labId) {
+      throw new Error("This booking does not belong to your lab");
+    }
+    if (collection.collectorAssignment || collection.status !== "PENDING") {
+      throw new Error("This booking is no longer awaiting lab acknowledgement");
+    }
+
+    // Idempotent acknowledgement: repeated calls do not reset the deadline.
+    if (collection.matchingStartedAt && collection.assignmentDeadline) {
+      return {
+        homeCollection: collection,
+        alreadyAcknowledged: true,
+        assignmentDeadline: collection.assignmentDeadline,
+      };
+    }
+
+    const now = new Date();
+    const deadline = new Date(now.getTime() + LAB_OFFER_WINDOW_MINUTES * 60 * 1000);
+    const updated = await tx.homeCollection.update({
+      where: { homeCollectionId },
+      data: {
+        matchingStartedAt: now,
+        assignmentDeadline: deadline,
+        firstReminderSentAt: null,
+        finalReminderSentAt: null,
+      },
+      include: homeCollectionDetailsInclude,
+    });
+
+    return {
+      homeCollection: updated,
+      alreadyAcknowledged: false,
+      assignmentDeadline: deadline,
+      assignmentWindowMinutes: LAB_OFFER_WINDOW_MINUTES,
+    };
+  }, { maxWait: 10000, timeout: 20000 });
+}
+
+/**
+ * Lab directly assigns one of its own verified, active collectors.
+ * Lab collectors never receive booking offers.
+ */
+export async function assignLabCollectorToHomeCollection(
+  homeCollectionId: string,
+  collectorId: string,
+  labUserId: string,
+) {
+  return prisma.$transaction(async (tx) => {
+    await lockHomeCollection(tx, homeCollectionId);
+
+    const lab = await tx.lab.findFirst({
+      where: { labUserId },
+      select: { labId: true },
+    });
+    if (!lab) throw new Error("Lab not found for the logged-in user");
+
+    const collection = await tx.homeCollection.findUnique({
+      where: { homeCollectionId },
+      include: { appointment: true, collectorAssignment: true },
+    });
+    if (!collection) throw new Error("Home collection not found");
+    if (collection.appointment.labId !== lab.labId) {
+      throw new Error("This booking does not belong to your lab");
+    }
+    if (collection.status !== "PENDING" || collection.collectorAssignment) {
+      throw new Error("This booking is not available for assignment");
+    }
+    if (collection.allocationStage !== "LAB_COLLECTORS") {
+      throw new Error("The lab assignment window has ended; this booking is in the independent pool");
+    }
+    if (!collection.matchingStartedAt || !collection.assignmentDeadline) {
+      throw new Error("Acknowledge the booking before assigning a lab collector");
+    }
+    if (collection.assignmentDeadline <= new Date()) {
+      throw new Error("The five-minute lab assignment window has expired");
+    }
+
+    const collector = await tx.collector.findUnique({ where: { collectorId } });
+    if (!collector) throw new Error("Collector not found");
+    if (collector.collectorType !== "LAB" || collector.labId !== lab.labId) {
+      throw new Error("Selected collector does not belong to your lab");
+    }
+    if (collector.status !== "ACTIVE") throw new Error("Collector is inactive");
+    if (collector.qualificationStatus !== "VERIFIED") {
+      throw new Error("Collector qualification is not verified");
+    }
+    if (!collector.isAvailable) throw new Error("Collector is not currently available");
+
+    const now = new Date();
+    const existing = await tx.collectorAssignment.findUnique({
+      where: { homeCollectionId },
+    });
+    if (existing && !["REJECTED", "CANCELLED"].includes(existing.status)) {
+      throw new Error("A collector is already assigned to this booking");
+    }
+
+    const assignment = existing
+      ? await tx.collectorAssignment.update({
+          where: { collectorAssignmentId: existing.collectorAssignmentId },
+          data: {
+            collectorId,
+            source: "LAB_INTERNAL",
+            status: "ASSIGNED",
+            assignedAt: now,
+            acceptedAt: null,
+          },
+          include: { collector: true, homeCollection: true },
+        })
+      : await tx.collectorAssignment.create({
+          data: {
+            homeCollectionId,
+            collectorId,
+            source: "LAB_INTERNAL",
+            status: "ASSIGNED",
+            assignedAt: now,
+          },
+          include: { collector: true, homeCollection: true },
+        });
+
+    await tx.homeCollection.update({
+      where: { homeCollectionId },
+      data: { status: "ASSIGNED", allocationStage: "ASSIGNED", assignedAt: now },
+    });
+    await tx.homeCollectionTracking.create({
+      data: {
+        homeCollectionId,
+        status: "ASSIGNED",
+        notes: "Lab directly assigned its internal collector",
+      },
+    });
+    await tx.collectorBookingOffer.updateMany({
+      where: { homeCollectionId, status: "PENDING" },
+      data: { status: "EXPIRED", respondedAt: now },
+    });
+
+    return assignment;
+  }, { maxWait: 10000, timeout: 20000 });
 }
 
 // =========================================================
@@ -978,16 +1102,16 @@ export async function getMyCollectorDashboard(userId: string) {
     prisma.collectorAssignment.count({
       where: { collectorId, status: "CANCELLED" },
     }),
-    prisma.collectorBookingOffer.count({
-      where: {
-        collectorId,
-        status: "PENDING",
-        OR: [
-          { expiresAt: null },
-          { expiresAt: { gt: new Date() } },
-        ],
-      },
-    }),
+    collector.collectorType === "INDEPENDENT"
+      ? prisma.collectorBookingOffer.count({
+          where: {
+            collectorId,
+            status: "PENDING",
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+            homeCollection: { allocationStage: "INDEPENDENT_POOL", status: "PENDING" },
+          },
+        })
+      : Promise.resolve(0),
     prisma.collectorAssignment.count({
       where: {
         collectorId,
@@ -1204,223 +1328,156 @@ export async function deleteCollector(collectorId: string) {
  * This function does not schedule itself.
  */
 
-export async function escalateDueHomeCollections() {
-  const cutoff = new Date(
-    Date.now() - LAB_OFFER_WINDOW_MINUTES * 60 * 1000,
-  );
 
-  // 1. Find LAB bookings whose offer window has expired.
-  const dueCollections = await prisma.homeCollection.findMany({
+export async function escalateDueHomeCollections() {
+  const now = new Date();
+  const firstReminderAt = new Date(now.getTime() - 2 * 60 * 1000);
+  const finalReminderAt = new Date(now.getTime() - 4 * 60 * 1000);
+
+  const reminderCandidates = await prisma.homeCollection.findMany({
     where: {
       status: "PENDING",
       allocationStage: "LAB_COLLECTORS",
-      matchingStartedAt: {
-        lte: cutoff,
-      },
-      collectorAssignment: {
-        is: null,
-      },
+      matchingStartedAt: { not: null },
+      assignmentDeadline: { gt: now },
+      collectorAssignment: { is: null },
+      OR: [
+        {
+          firstReminderSentAt: null,
+          matchingStartedAt: { lte: firstReminderAt },
+        },
+        {
+          finalReminderSentAt: null,
+          matchingStartedAt: { lte: finalReminderAt },
+        },
+      ],
     },
-    select: {
-      homeCollectionId: true,
-    },
-    orderBy: {
-      matchingStartedAt: "asc",
-    },
+    select: { homeCollectionId: true },
   });
 
-  // 2. Capture bookings already in the independent pool.
-  // This query runs before escalation so newly escalated bookings
-  // aren't processed twice in the same scheduler run.
-  const independentPoolCollections =
-    await prisma.homeCollection.findMany({
-      where: {
-        status: "PENDING",
-        allocationStage: "INDEPENDENT_POOL",
-        collectorAssignment: {
-          is: null,
+  const reminders: Array<{
+    homeCollectionId: string;
+    labUserId: string | null;
+    reminderType: "FIRST" | "FINAL";
+    assignmentDeadline: Date;
+  }> = [];
+
+  for (const item of reminderCandidates) {
+    const reminder = await prisma.$transaction(async (tx) => {
+      await lockHomeCollection(tx, item.homeCollectionId);
+
+      const collection = await tx.homeCollection.findUnique({
+        where: { homeCollectionId: item.homeCollectionId },
+        include: {
+          appointment: { include: { lab: true } },
+          collectorAssignment: true,
         },
-      },
-      select: {
-        homeCollectionId: true,
-      },
-      orderBy: {
-        independentEscalatedAt: "asc",
-      },
-    });
+      });
 
-  let escalated = 0;
-  let newlyCreatedOffers = 0;
-  let retriedIndependentOffers = 0;
+      if (
+        !collection ||
+        collection.status !== "PENDING" ||
+        collection.allocationStage !== "LAB_COLLECTORS" ||
+        collection.collectorAssignment ||
+        !collection.matchingStartedAt ||
+        !collection.assignmentDeadline ||
+        collection.assignmentDeadline <= new Date()
+      ) {
+        return null;
+      }
 
-  const missingLocationIds: string[] = [];
+      const current = new Date();
 
-  // 3. Process LAB offer expiry and escalation.
-  for (const item of dueCollections) {
-    const result = await prisma.$transaction(
-      async (tx) => {
-        await lockHomeCollection(tx, item.homeCollectionId);
-
-        const collection = await tx.homeCollection.findUnique({
-          where: {
-            homeCollectionId: item.homeCollectionId,
-          },
-          include: {
-            appointment: true,
-            collectorAssignment: true,
-          },
-        });
-
-        if (!collection) {
-          return {
-            escalated: false,
-            offersCreated: 0,
-            missingLocation: false,
-          };
-        }
-
-        if (
-          collection.status !== "PENDING" ||
-          collection.allocationStage !== "LAB_COLLECTORS" ||
-          collection.collectorAssignment
-        ) {
-          return {
-            escalated: false,
-            offersCreated: 0,
-            missingLocation: false,
-          };
-        }
-
-        if (
-          collection.matchingStartedAt.getTime() >
-          cutoff.getTime()
-        ) {
-          return {
-            escalated: false,
-            offersCreated: 0,
-            missingLocation: false,
-          };
-        }
-
-        if (
-          collection.latitude == null ||
-          collection.longitude == null
-        ) {
-          return {
-            escalated: false,
-            offersCreated: 0,
-            missingLocation: true,
-          };
-        }
-
-        await tx.collectorBookingOffer.updateMany({
-          where: {
-            homeCollectionId: collection.homeCollectionId,
-            status: "PENDING",
-            expiresAt: {
-              lte: new Date(),
-            },
-          },
-          data: {
-            status: "EXPIRED",
-            respondedAt: new Date(),
-          },
-        });
-
+      if (
+        !collection.firstReminderSentAt &&
+        collection.matchingStartedAt <=
+          new Date(current.getTime() - 2 * 60 * 1000)
+      ) {
         await tx.homeCollection.update({
-          where: {
-            homeCollectionId: collection.homeCollectionId,
-          },
-          data: {
-            allocationStage: "INDEPENDENT_POOL",
-            independentEscalatedAt: new Date(),
-          },
+          where: { homeCollectionId: item.homeCollectionId },
+          data: { firstReminderSentAt: current },
         });
-
-        const count = await createIndependentCollectorOffers(
-          tx,
-          collection,
-        );
 
         return {
-          escalated: true,
-          offersCreated: count,
-          missingLocation: false,
+          homeCollectionId: item.homeCollectionId,
+          labUserId: collection.appointment.lab?.labUserId ?? null,
+          reminderType: "FIRST" as const,
+          assignmentDeadline: collection.assignmentDeadline,
         };
-      },
-      {
-        maxWait: 10000,
-        timeout: 20000,
-      },
-    );
+      }
 
-    if (result.missingLocation) {
-      missingLocationIds.push(item.homeCollectionId);
-      continue;
-    }
-
-    if (result.escalated) {
-      escalated += 1;
-      newlyCreatedOffers += result.offersCreated;
-    }
-  }
-
-  // 4. Retry bookings already in INDEPENDENT_POOL.
-  // This catches collectors who update their GPS or availability
-  // after the original escalation.
-  for (const item of independentPoolCollections) {
-    const count = await prisma.$transaction(
-      async (tx) => {
-        await lockHomeCollection(tx, item.homeCollectionId);
-
-        const collection = await tx.homeCollection.findUnique({
-          where: {
-            homeCollectionId: item.homeCollectionId,
-          },
-          include: {
-            collectorAssignment: true,
-          },
+      if (
+        !collection.finalReminderSentAt &&
+        collection.matchingStartedAt <=
+          new Date(current.getTime() - 4 * 60 * 1000)
+      ) {
+        await tx.homeCollection.update({
+          where: { homeCollectionId: item.homeCollectionId },
+          data: { finalReminderSentAt: current },
         });
 
-        if (
-          !collection ||
-          collection.status !== "PENDING" ||
-          collection.allocationStage !== "INDEPENDENT_POOL" ||
-          collection.collectorAssignment
-        ) {
-          return 0;
-        }
+        return {
+          homeCollectionId: item.homeCollectionId,
+          labUserId: collection.appointment.lab?.labUserId ?? null,
+          reminderType: "FINAL" as const,
+          assignmentDeadline: collection.assignmentDeadline,
+        };
+      }
 
-        if (
-          collection.latitude == null ||
-          collection.longitude == null
-        ) {
-          return 0;
-        }
+      return null;
+    }, { maxWait: 10000, timeout: 20000 });
 
-        return createIndependentCollectorOffers(tx, collection);
-      },
-      {
-        maxWait: 10000,
-        timeout: 20000,
-      },
-    );
+    if (reminder) reminders.push(reminder);
+  }
+
+  // Only retry offers for bookings already pushed into the pool by the lab.
+  const independentPoolCollections = await prisma.homeCollection.findMany({
+    where: {
+      status: "PENDING",
+      allocationStage: "INDEPENDENT_POOL",
+      collectorAssignment: { is: null },
+    },
+    select: { homeCollectionId: true },
+    orderBy: { independentEscalatedAt: "asc" },
+  });
+
+  let retriedIndependentOffers = 0;
+
+  for (const item of independentPoolCollections) {
+    const count = await prisma.$transaction(async (tx) => {
+      await lockHomeCollection(tx, item.homeCollectionId);
+
+      const collection = await tx.homeCollection.findUnique({
+        where: { homeCollectionId: item.homeCollectionId },
+        include: { collectorAssignment: true },
+      });
+
+      if (
+        !collection ||
+        collection.status !== "PENDING" ||
+        collection.allocationStage !== "INDEPENDENT_POOL" ||
+        collection.collectorAssignment ||
+        collection.latitude == null ||
+        collection.longitude == null
+      ) {
+        return 0;
+      }
+
+      return createIndependentCollectorOffers(tx, collection);
+    }, { maxWait: 10000, timeout: 20000 });
 
     retriedIndependentOffers += count;
   }
 
   return {
-    checked: dueCollections.length,
-    escalated,
-    independentOffersCreated:
-      newlyCreatedOffers + retriedIndependentOffers,
-    newlyCreatedOffers,
+    reminderEvents: reminders,
+    remindersQueued: reminders.length,
+    escalated: 0,
     retriedIndependentOffers,
     independentPoolChecked: independentPoolCollections.length,
-    skippedMissingLocation: missingLocationIds.length,
-    missingLocationIds,
   };
 }
+
 
 
 // =========================================================
@@ -1447,6 +1504,9 @@ export async function getMyCollectorBookingOffers(userId: string) {
   if (collector.status !== "ACTIVE") {
     throw new Error("Collector account is inactive");
   }
+  if (collector.collectorType !== "INDEPENDENT" || collector.labId !== null) {
+    return { collector, total: 0, offers: [] };
+  }
 
   const offers = await prisma.collectorBookingOffer.findMany({
     where: {
@@ -1459,9 +1519,7 @@ export async function getMyCollectorBookingOffers(userId: string) {
       homeCollection: {
         is: {
           status: "PENDING",
-          allocationStage: {
-            in: ["LAB_COLLECTORS", "INDEPENDENT_POOL"],
-          },
+          allocationStage: "INDEPENDENT_POOL",
           collectorAssignment: {
             is: null,
           },
@@ -1518,6 +1576,15 @@ export async function acceptMyCollectorBookingOffer(
     throw new Error("Collector account is inactive");
   }
 
+  if (
+    collector.collectorType !== "INDEPENDENT" ||
+    collector.labId !== null
+  ) {
+    throw new Error(
+      "Only independent collectors can accept booking offers",
+    );
+  }
+
   if (collector.qualificationStatus !== "VERIFIED") {
     throw new Error("Collector qualification is not verified");
   }
@@ -1526,7 +1593,7 @@ export async function acceptMyCollectorBookingOffer(
     throw new Error("Collector is not currently available");
   }
 
-  return prisma.$transaction(
+  const result = await prisma.$transaction(
     async (tx) => {
       const initialOffer = await tx.collectorBookingOffer.findUnique({
         where: { offerId },
@@ -1580,7 +1647,7 @@ export async function acceptMyCollectorBookingOffer(
           },
         });
 
-        throw new Error("This booking offer has expired");
+        return { expired: true as const };
       }
 
       const homeCollection = offer.homeCollection;
@@ -1594,11 +1661,10 @@ export async function acceptMyCollectorBookingOffer(
         );
       }
 
-      if (
-        homeCollection.allocationStage !== "LAB_COLLECTORS" &&
-        homeCollection.allocationStage !== "INDEPENDENT_POOL"
-      ) {
-        throw new Error("This booking is no longer accepting offers");
+      if (homeCollection.allocationStage !== "INDEPENDENT_POOL") {
+        throw new Error(
+          "This booking is not in the independent collector pool",
+        );
       }
 
       // Revalidate collector after acquiring the lock.
@@ -1646,48 +1712,30 @@ export async function acceptMyCollectorBookingOffer(
         throw new Error("Patient collection location is unavailable");
       }
 
-      // Verify the collector belongs to the correct offer pool.
+      // Only independent collectors participate in the offer pool.
       if (
-        currentCollector.collectorType === "LAB" &&
-        (
-          homeCollection.allocationStage !== "LAB_COLLECTORS" ||
-          currentCollector.labId !== homeCollection.appointment.labId
-        )
+        currentCollector.collectorType !== "INDEPENDENT" ||
+        currentCollector.labId !== null
       ) {
         throw new Error(
-          "This lab collector offer is no longer valid",
+          "Only independent collectors can accept booking offers",
         );
       }
 
-      if (
-        currentCollector.collectorType === "INDEPENDENT" &&
-        (
-          homeCollection.allocationStage !== "INDEPENDENT_POOL" ||
-          currentCollector.labId !== null
-        )
-      ) {
+      const distanceKm = calculateDistanceKm(
+        homeCollection.latitude,
+        homeCollection.longitude,
+        currentCollector.latitude,
+        currentCollector.longitude,
+      );
+
+      if (distanceKm > INDEPENDENT_COLLECTOR_RADIUS_KM) {
         throw new Error(
-          "This independent collector offer is no longer valid",
+          "Patient location is outside the 25 km collection radius",
         );
       }
 
-      // Validate independent collector distance.
-      if (currentCollector.collectorType === "INDEPENDENT") {
-        const distanceKm = calculateDistanceKm(
-          homeCollection.latitude,
-          homeCollection.longitude,
-          currentCollector.latitude,
-          currentCollector.longitude,
-        );
-
-        if (distanceKm > INDEPENDENT_COLLECTOR_RADIUS_KM) {
-          throw new Error(
-            "Patient location is outside the 25 km collection radius",
-          );
-        }
-      }
-
-      // Check maximum active bookings.
+      // The collector lock makes this count safe against concurrent accepts.
       const activeBookingCount = await tx.collectorAssignment.count({
         where: {
           collectorId: currentCollector.collectorId,
@@ -1705,24 +1753,18 @@ export async function acceptMyCollectorBookingOffer(
         );
       }
 
-      const assignmentSource =
-        currentCollector.collectorType === "INDEPENDENT"
-          ? "INDEPENDENT_POOL"
-          : "LAB_INTERNAL";
-
-      // Create collector assignment.
       const assignment = await tx.collectorAssignment.create({
         data: {
           homeCollectionId: homeCollection.homeCollectionId,
           collectorId: currentCollector.collectorId,
-          source: assignmentSource,
+          source: "INDEPENDENT_POOL",
           status: "ACCEPTED",
           acceptedAt: now,
           assignedAt: now,
         },
       });
 
-      // Update home collection status.
+      // Update parent HomeCollection.
       await tx.homeCollection.update({
         where: {
           homeCollectionId: homeCollection.homeCollectionId,
@@ -1734,16 +1776,16 @@ export async function acceptMyCollectorBookingOffer(
         },
       });
 
-      // Create tracking history.
+      // Create tracking event.
       await tx.homeCollectionTracking.create({
         data: {
           homeCollectionId: homeCollection.homeCollectionId,
           status: "ASSIGNED",
-          notes: `Collector accepted booking through ${assignmentSource}`,
+          notes: "Collector accepted booking through INDEPENDENT_POOL",
         },
       });
 
-      // Mark accepted offer.
+      // Mark the accepted offer.
       await tx.collectorBookingOffer.update({
         where: { offerId },
         data: {
@@ -1767,29 +1809,45 @@ export async function acceptMyCollectorBookingOffer(
         },
       });
 
-      // IMPORTANT:
-      // Fetch the assignment again after updating homeCollection.
-      // This ensures the response contains the latest nested data.
-      return tx.collectorAssignment.findUniqueOrThrow({
-        where: {
-          collectorAssignmentId:
-            assignment.collectorAssignmentId,
-        },
-        include: {
-          collector: true,
-          homeCollection: {
-            include: {
-              appointment: appointmentWithLabAndTestReports,
+      // Fetch the assignment again so the response contains
+      // the updated HomeCollection status and allocation stage.
+      const updatedAssignment =
+        await tx.collectorAssignment.findUnique({
+          where: {
+            collectorAssignmentId: assignment.collectorAssignmentId,
+          },
+          include: {
+            collector: true,
+            homeCollection: {
+              include: {
+                appointment: appointmentWithLabAndTestReports,
+              },
             },
           },
-        },
-      });
+        });
+
+      if (!updatedAssignment) {
+        throw new Error(
+          "Collector assignment could not be retrieved",
+        );
+      }
+
+      return {
+        expired: false as const,
+        assignment: updatedAssignment,
+      };
     },
     {
       maxWait: 10000,
       timeout: 20000,
     },
   );
+
+  if (result.expired) {
+    throw new Error("This booking offer has expired");
+  }
+
+  return result.assignment;
 }
 
 
@@ -1815,6 +1873,10 @@ export async function rejectMyCollectorBookingOffer(
 
   if (collector.status !== "ACTIVE") {
     throw new Error("Collector account is inactive");
+  }
+  const collectorProfile = await prisma.collector.findUnique({ where: { userId }, select: { collectorType: true, labId: true } });
+  if (!collectorProfile || collectorProfile.collectorType !== "INDEPENDENT" || collectorProfile.labId !== null) {
+    throw new Error("Only independent collectors can reject booking offers");
   }
 
   return prisma.$transaction(async (tx) => {
@@ -2171,35 +2233,28 @@ export async function getMyCollectorBookings(userId: string) {
         assignedAt: "desc",
       },
     }),
-    prisma.collectorBookingOffer.findMany({
-      where: {
-        collectorId: collector.collectorId,
-        status: "PENDING",
-        OR: [
-          { expiresAt: null },
-          { expiresAt: { gt: new Date() } },
-        ],
-        homeCollection: {
-          is: {
+    collector.collectorType === "INDEPENDENT" && collector.labId === null
+      ? prisma.collectorBookingOffer.findMany({
+          where: {
+            collectorId: collector.collectorId,
             status: "PENDING",
-            collectorAssignment: {
-              is: null,
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+            homeCollection: {
+              is: {
+                status: "PENDING",
+                allocationStage: "INDEPENDENT_POOL",
+                collectorAssignment: { is: null },
+              },
             },
           },
-        },
-      },
-      include: {
-        homeCollection: {
           include: {
-            appointment: appointmentWithLabAndTestReports,
-            samples: true,
+            homeCollection: {
+              include: { appointment: appointmentWithLabAndTestReports, samples: true },
+            },
           },
-        },
-      },
-      orderBy: {
-        offeredAt: "desc",
-      },
-    }),
+          orderBy: { offeredAt: "desc" },
+        })
+      : Promise.resolve([]),
   ]);
 
   return {
@@ -2355,4 +2410,199 @@ export async function getHomeCollectionHistory(
   }
 
   return collection;
+}
+
+
+
+/**
+ * Lab explicitly pushes an unassigned home collection
+ * into the independent collector pool.
+ *
+ * This is a manual action. The scheduler must never call this function.
+ */
+export async function pushHomeCollectionToIndependentPool(
+  homeCollectionId: string,
+  labUserId: string,
+) {
+  return prisma.$transaction(async (tx) => {
+    await lockHomeCollection(tx, homeCollectionId);
+
+    const lab = await tx.lab.findFirst({
+      where: { labUserId },
+      select: { labId: true },
+    });
+
+    if (!lab) {
+      throw new Error("Lab not found for the logged-in user");
+    }
+
+    const collection = await tx.homeCollection.findUnique({
+      where: { homeCollectionId },
+      include: {
+        appointment: true,
+        collectorAssignment: true,
+      },
+    });
+
+    if (!collection) {
+      throw new Error("Home collection not found");
+    }
+
+    if (collection.appointment.labId !== lab.labId) {
+      throw new Error("This booking does not belong to your lab");
+    }
+
+    if (collection.status !== "PENDING") {
+      throw new Error("Only pending bookings can be moved to the pool");
+    }
+
+    if (collection.allocationStage !== "LAB_COLLECTORS") {
+      throw new Error("This booking is not awaiting lab allocation");
+    }
+
+    if (collection.collectorAssignment) {
+      throw new Error("A collector is already assigned to this booking");
+    }
+
+    if (collection.latitude == null || collection.longitude == null) {
+      throw new Error("Home collection location is missing");
+    }
+
+    const now = new Date();
+
+    await tx.homeCollection.update({
+      where: { homeCollectionId },
+      data: {
+        allocationStage: "INDEPENDENT_POOL",
+        independentEscalatedAt: now,
+      },
+    });
+
+    const offersCreated = await createIndependentCollectorOffers(
+      tx,
+      collection,
+    );
+
+    const updated = await tx.homeCollection.findUnique({
+      where: { homeCollectionId },
+      include: homeCollectionDetailsInclude,
+    });
+
+    return {
+      homeCollection: updated,
+      allocationStage: "INDEPENDENT_POOL",
+      offersCreated,
+      pushedBy: "LAB",
+    };
+  }, { maxWait: 10000, timeout: 20000 });
+}
+// =========================================================
+// PATIENT / CITIZEN HOME COLLECTION APIs
+// =========================================================
+
+
+/**
+ * Get active home collection bookings for the logged-in patient.
+ *
+ * Ownership is verified using appointment.patientId.
+ */
+export async function getMyHomeCollectionBookings(
+  userId: string,
+) {
+  if (!userId?.trim()) {
+    throw new Error("Authenticated user ID is required");
+  }
+
+  const bookings = await prisma.homeCollection.findMany({
+    where: {
+      appointment: {
+        is: {
+          patientId: userId,
+        },
+      },
+      status: {
+        in: [...PATIENT_ACTIVE_HOME_COLLECTION_STATUSES],
+      },
+    },
+    include: patientHomeCollectionInclude,
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  return {
+    total: bookings.length,
+    bookings,
+  };
+}
+
+/**
+ * Get completed and cancelled home collection bookings
+ * for the logged-in patient.
+ */
+export async function getMyHomeCollectionHistory(
+  userId: string,
+) {
+  if (!userId?.trim()) {
+    throw new Error("Authenticated user ID is required");
+  }
+
+  const bookings = await prisma.homeCollection.findMany({
+    where: {
+      appointment: {
+        is: {
+          patientId: userId,
+        },
+      },
+      status: {
+        in: [...PATIENT_HOME_COLLECTION_HISTORY_STATUSES],
+      },
+    },
+    include: patientHomeCollectionInclude,
+    orderBy: {
+      updatedAt: "desc",
+    },
+  });
+
+  return {
+    total: bookings.length,
+    bookings,
+  };
+}
+
+/**
+ * Get one home collection booking belonging to the logged-in patient.
+ *
+ * A patient cannot access another patient's booking by changing
+ * the homeCollectionId.
+ */
+export async function getMyHomeCollectionById(
+  homeCollectionId: string,
+  userId: string,
+) {
+  if (!homeCollectionId?.trim()) {
+    throw new Error("Home collection ID is required");
+  }
+
+  if (!userId?.trim()) {
+    throw new Error("Authenticated user ID is required");
+  }
+
+  const booking = await prisma.homeCollection.findFirst({
+    where: {
+      homeCollectionId,
+      appointment: {
+        is: {
+          patientId: userId,
+        },
+      },
+    },
+    include: patientHomeCollectionInclude,
+  });
+
+  if (!booking) {
+    throw new Error("Home collection booking not found");
+  }
+
+  return booking;
 }

@@ -424,9 +424,13 @@ model HomeCollection {
   status HomeCollectionStatus @default(PENDING)
 
   // Collector allocation workflow
-  allocationStage        CollectionAllocationStage @default(LAB_COLLECTORS)
-  matchingStartedAt      DateTime                  @default(now())
+  allocationStage        CollectionAllocationStage   @default(LAB_COLLECTORS)
+  matchingStartedAt      DateTime?
+  assignmentDeadline     DateTime?
+  firstReminderSentAt    DateTime?
+  finalReminderSentAt    DateTime?
   independentEscalatedAt DateTime?
+  confirmation           HomeCollectionConfirmation?
 
   assignedAt  DateTime?
   collectedAt DateTime?
@@ -440,14 +444,52 @@ model HomeCollection {
   trackingEvents      HomeCollectionTracking[]
   samples             Sample[]
   bookingOffers       CollectorBookingOffer[]
+  collectionOtpVerifications HomeCollectionOtpVerification[]
 
   @@index([status])
   @@index([allocationStage])
   @@index([createdAt])
   @@index([matchingStartedAt])
+  @@index([assignmentDeadline, allocationStage])
   @@index([latitude, longitude])
 }
 
+model HomeCollectionConfirmation {
+  confirmationId   String             @id @default(uuid())
+  homeCollectionId String             @unique
+  status           ConfirmationStatus @default(PENDING)
+  recipientPhone   String?
+  payload          Json
+  attempts         Int                @default(0)
+  lastAttemptAt    DateTime?
+  confirmedAt      DateTime?
+  failureReason    String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  homeCollection HomeCollection @relation(fields: [homeCollectionId], references: [homeCollectionId], onDelete: Cascade)
+
+  @@index([status, createdAt])
+}
+
+model HomeCollectionOtpVerification {
+  verificationId   String   @id @default(uuid())
+  homeCollectionId String
+
+  otpHash String
+
+  verified    Boolean   @default(false)
+  generatedAt DateTime  @default(now())
+  expiresAt   DateTime
+  verifiedAt  DateTime?
+
+  attempts Int @default(0)
+
+ homeCollection HomeCollection @relation(fields: [homeCollectionId], references: [homeCollectionId], onDelete: Cascade)
+
+  @@index([homeCollectionId])
+  @@index([expiresAt])
+}
 // =========================================================
 // COLLECTOR
 // =========================================================
@@ -605,7 +647,7 @@ model Sample {
   sampleType    String
   containerType String?
 
-  status SampleStatus @default(COLLECTED)
+  status       SampleStatus @default(PENDING_COLLECTION)
 
   collectedAt DateTime?
   receivedAt  DateTime?
@@ -1037,6 +1079,13 @@ enum HomeCollectionStatus {
   REPORT_READY
   COMPLETED
   CANCELLED
+}
+
+enum ConfirmationStatus {
+  PENDING
+  INITIATED
+  COMPLETED
+  FAILED
 }
 
 enum CollectorStatus {

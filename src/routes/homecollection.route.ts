@@ -5,7 +5,9 @@ import {
   createCollectorController,
   createHomeCollectionController,
   createHomeCollectionTrackingController,
-
+  acknowledgeHomeCollectionController,
+  assignLabCollectorController,
+  pushHomeCollectionToIndependentPoolController,
   deleteCollectorController,
   deleteCollectorAssignmentController,
 
@@ -37,6 +39,10 @@ import {
   getHomeCollectionHistoryController,
   getMyCollectorHistoryController,
   getMyCollectorDashboardController,
+  getMyHomeCollectionByIdController,
+  getMyHomeCollectionHistoryController,
+  getMyHomeCollectionBookingsController
+
 } from "../controllers/homecollection.controller";
 
 const router = Router();
@@ -62,6 +68,20 @@ router.get(
 );
 
 router.get(
+  "/homecollection/me/bookings",
+  getMyHomeCollectionBookingsController,
+);
+
+router.get(
+  "/homecollection/me/history",
+  getMyHomeCollectionHistoryController,
+);
+
+router.get(
+  "/homecollection/me/:homeCollectionId",
+  getMyHomeCollectionByIdController,
+);
+router.get(
   "/homecollection/appointment/:appointmentId",
   getHomeCollectionByAppointmentIdController,
 );
@@ -81,6 +101,22 @@ router.put(
   updateHomeCollectionController,
 );
 
+// Lab acknowledges receipt of a home collection booking
+router.post(
+  "/homecollection/:homeCollectionId/acknowledge",
+  acknowledgeHomeCollectionController,
+);
+
+// Lab assigns one of its own collectors
+router.post(
+  "/homecollection/:homeCollectionId/assign-collector",
+  assignLabCollectorController,
+);
+
+router.post(
+  "/homecollection/:homeCollectionId/push-to-independent-pool",
+  pushHomeCollectionToIndependentPoolController,
+);
 // =========================================================
 // COLLECTOR MANAGEMENT
 // =========================================================

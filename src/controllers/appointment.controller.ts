@@ -34,13 +34,22 @@ import {
 // =========================================================
 
 
+
 export async function createAppointmentController(
   req: Request,
   res: Response,
 ) {
   try {
+    const userId = req.headers["x-user-id"];
+
+    if (typeof userId !== "string" || !userId.trim()) {
+      return res.status(401).json({
+        status: "error",
+        message: "Authentication required",
+      });
+    }
+
     const {
-      patientId,
       labId,
       scanCenterId,
       appointmentType,
@@ -49,6 +58,9 @@ export async function createAppointmentController(
       startTime,
       endTime,
       address,
+      latitude,
+      longitude,
+      specialInstructions,
       status,
       patientNotes,
       tests,
@@ -56,7 +68,6 @@ export async function createAppointmentController(
     } = req.body;
 
     if (
-      !patientId ||
       !appointmentType ||
       !appointmentMode ||
       !appointmentDate ||
@@ -66,12 +77,12 @@ export async function createAppointmentController(
       return res.status(400).json({
         status: "error",
         message:
-          "patientId, appointmentType, appointmentMode, appointmentDate, startTime and endTime are required",
+          "appointmentType, appointmentMode, appointmentDate, startTime and endTime are required",
       });
     }
 
     const appointment = await createAppointment({
-      patientId,
+      patientId: userId.trim(),
       labId,
       scanCenterId,
       appointmentType,
@@ -80,6 +91,9 @@ export async function createAppointmentController(
       startTime,
       endTime,
       address,
+      latitude,
+      longitude,
+      specialInstructions,
       status,
       patientNotes,
       tests,
@@ -100,6 +114,7 @@ export async function createAppointmentController(
     });
   }
 }
+
 
 
 

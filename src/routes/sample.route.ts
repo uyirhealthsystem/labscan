@@ -1,3 +1,4 @@
+
 import { Router } from "express";
 
 import {
@@ -24,8 +25,12 @@ const router = Router();
 // All sample routes require an authenticated identity.
 router.use(userAuth);
 
-// Sample management
+// -----------------------------------------
+// SAMPLE MANAGEMENT
+// -----------------------------------------
+
 router.post("/sample", createSampleController);
+
 router.get("/samples", getSamplesController);
 
 router.get(
@@ -38,42 +43,67 @@ router.get(
   getSampleByBarcodeController,
 );
 
-router.get("/sample/:sampleId", getSampleByIdController);
-router.put("/sample/:sampleId", updateSampleController);
-router.delete("/sample/:sampleId", deleteSampleController);
+router.get(
+  "/sample/:sampleId",
+  getSampleByIdController,
+);
 
-// Collection OTP
+router.put(
+  "/sample/:sampleId",
+  updateSampleController,
+);
+
+router.delete(
+  "/sample/:sampleId",
+  deleteSampleController,
+);
+
+// -----------------------------------------
+// HOME COLLECTION OTP
+// OTP is generated before samples are created.
+// -----------------------------------------
+
 router.post(
-  "/sample/:sampleId/otp/generate",
+  "/homecollection/:homeCollectionId/otp/generate",
   generateCollectionOtpController,
 );
 
-// Collector collection OTP verification
+// Collector verifies the citizen's OTP.
 router.post(
-  "/collector/samples/:sampleId/verify-otp",
+  "/collector/homecollection/:homeCollectionId/verify-otp",
   verifyCollectorCollectionOtpController,
 );
 
-// Collector evidence
+// -----------------------------------------
+// COLLECTOR EVIDENCE
+// -----------------------------------------
+
 router.post(
   "/collector/samples/:sampleId/evidence",
   reportUpload.single("file"),
   uploadCollectorSampleEvidenceController,
 );
 
-// Collector sample status
+// -----------------------------------------
+// COLLECTOR SAMPLE STATUS
+// -----------------------------------------
+
 router.patch(
   "/collector/samples/:sampleId/status",
   updateCollectorSampleStatusController,
 );
 
-// Lab generates handover OTP
+// -----------------------------------------
+// LAB HANDOVER OTP
+// Sample-based OTP remains unchanged.
+// -----------------------------------------
+
 router.post(
   "/sample/:sampleId/handover-otp/generate",
   generateSampleHandoverOtpController,
 );
 
-// Collector verifies handover OTP
+// Collector verifies lab handover OTP.
 router.post(
   "/collector/samples/:sampleId/handover-otp/verify",
   verifySampleHandoverOtpController,

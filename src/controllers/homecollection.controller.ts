@@ -1,12 +1,14 @@
 
 import type { Request, Response } from "express";
 
-import { apiError } from '../utils/apiError';
+import { apiError } from "../utils/apiError";
 import { asyncHandler } from "../utils/asyncHandler";
 
 import {
   createCollector,
   createHomeCollection,
+  acknowledgeHomeCollectionReceived,
+  assignLabCollectorToHomeCollection,
   createHomeCollectionTracking,
   deleteCollector as removeCollector,
   deleteCollectorAssignment,
@@ -33,6 +35,10 @@ import {
   getHomeCollectionHistory,
   getMyCollectorDashboard,
   getMyCollectorHistory,
+  pushHomeCollectionToIndependentPool,
+  getMyHomeCollectionBookings,
+  getMyHomeCollectionHistory,
+  getMyHomeCollectionById,
 } from "../services/homecollection.service";
 
 /* -------------------------------------------------------------------------- */
@@ -42,11 +48,11 @@ import {
 function getUserId(req: Request): string {
   const userId = req.headers["x-user-id"];
 
-  if (!userId || Array.isArray(userId)) {
+  if (typeof userId !== "string" || !userId.trim()) {
     throw new apiError(401, "User authentication required");
   }
 
-  return userId;
+  return userId.trim();
 }
 
 function sendSuccess(
@@ -91,6 +97,141 @@ export const getHomeCollectionsController = asyncHandler(
   },
 );
 
+/* -------------------------------------------------------------------------- */
+/*                         PATIENT HOME COLLECTION                            */
+/* -------------------------------------------------------------------------- */
+
+// Get all active home collection bookings for the authenticated patient.
+
+export const getMyHomeCollectionBookingsController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+
+    const result = await getMyHomeCollectionBookings(userId);
+
+    return sendSuccess(
+      res,
+      "Your home collection bookings fetched successfully",
+      result,
+    );
+  },
+);
+
+// Get completed and cancelled home collection bookings.
+
+export const getMyHomeCollectionHistoryController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+
+    const result = await getMyHomeCollectionHistory(userId);
+
+    return sendSuccess(
+      res,
+      "Your home collection history fetched successfully",
+      result,
+    );
+  },
+);
+
+// Get one home collection booking belonging to the authenticated patient.
+
+export const getMyHomeCollectionByIdController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const homeCollectionId = req.params.homeCollectionId as string;
+
+    if (!homeCollectionId?.trim()) {
+      throw new apiError(400, "Home collection ID is required");
+    }
+
+    const result = await getMyHomeCollectionById(
+      homeCollectionId,
+      userId,
+    );
+
+    return sendSuccess(
+      res,
+      "Your home collection booking fetched successfully",
+      result,
+    );
+  },
+);
+/* -------------------------------------------------------------------------- */
+/*                     LAB ACKNOWLEDGEMENT AND ASSIGNMENT                     */
+/* -------------------------------------------------------------------------- */
+
+// Lab acknowledges receipt of a booking.
+// Lab identity comes exclusively from authenticated request context.
+
+export const acknowledgeHomeCollectionController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const homeCollectionId = req.params.homeCollectionId as string;
+    const labUserId = getUserId(req);
+
+    if (!homeCollectionId?.trim()) {
+      throw new apiError(400, "Home collection ID is required");
+    }
+
+    const result = await acknowledgeHomeCollectionReceived(
+      homeCollectionId,
+      labUserId,
+    );
+
+    return sendSuccess(
+      res,
+      "Home collection booking acknowledged; five-minute assignment timer started",
+      result,
+    );
+  },
+);
+
+// Lab assigns its own collector.
+
+export const assignLabCollectorController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const homeCollectionId = req.params.homeCollectionId as string;
+    const labUserId = getUserId(req);
+
+    const { collectorId } = req.body;
+
+    if (!homeCollectionId?.trim()) {
+      throw new apiError(400, "Home collection ID is required");
+    }
+
+    if (
+      typeof collectorId !== "string" ||
+      !collectorId.trim()
+    ) {
+      throw new apiError(400, "Valid collectorId is required");
+    }
+
+    const result = await assignLabCollectorToHomeCollection(
+      homeCollectionId,
+      collectorId.trim(),
+      labUserId,
+    );
+
+    return sendSuccess(
+      res,
+      "Lab collector assigned successfully",
+      result,
+      201,
+    );
+  },
+);
+
+// Backward-compatible exports for older router imports.
+
+export const acknowledgeHomeCollectionReceivedController =
+  acknowledgeHomeCollectionController;
+
+export const assignLabCollectorToHomeCollectionController =
+  assignLabCollectorController;
+
+/* -------------------------------------------------------------------------- */
+/*                            HOME COLLECTION GET                             */
+/* -------------------------------------------------------------------------- */
+
 export const getHomeCollectionByIdController = asyncHandler(
   async (req: Request, res: Response) => {
     const homeCollectionId = req.params.homeCollectionId as string;
@@ -123,6 +264,11 @@ export const updateHomeCollectionController = asyncHandler(
   async (req: Request, res: Response) => {
     const homeCollectionId = req.params.homeCollectionId as string;
 
+    // IMPORTANT:
+    // The service must independently enforce an allowlist of editable fields.
+    // Do not allow generic updates to bypass lab acknowledgement,
+    // assignment ownership, or the five-minute deadline.
+
     const result = await updateHomeCollection(
       homeCollectionId,
       req.body,
@@ -135,6 +281,10 @@ export const updateHomeCollectionController = asyncHandler(
     );
   },
 );
+
+/* -------------------------------------------------------------------------- */
+/*                            HOME COLLECTION SUMMARY                         */
+/* -------------------------------------------------------------------------- */
 
 export const getHomeCollectionSummaryController = asyncHandler(
   async (req: Request, res: Response) => {
@@ -480,7 +630,7 @@ export const deleteCollectorAssignmentController = asyncHandler(
 );
 
 /* -------------------------------------------------------------------------- */
-/*                            HOME COLLECTION TRACKING                        */
+/*                         HOME COLLECTION TRACKING                           */
 /* -------------------------------------------------------------------------- */
 
 export const createHomeCollectionTrackingController = asyncHandler(
@@ -527,3 +677,27 @@ export const getHomeCollectionTrackingByIdController = asyncHandler(
     );
   },
 );
+
+
+export const pushHomeCollectionToIndependentPoolController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const homeCollectionId = req.params.homeCollectionId as string;
+    const labUserId = getUserId(req);
+
+    if (!homeCollectionId?.trim()) {
+      throw new apiError(400, "Home collection ID is required");
+    }
+
+    const result = await pushHomeCollectionToIndependentPool(
+      homeCollectionId,
+      labUserId,
+    );
+
+    return sendSuccess(
+      res,
+      "Home collection pushed into independent collector pool",
+      result,
+    );
+  },
+);
+

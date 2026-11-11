@@ -23,7 +23,7 @@ import {
   completeAppointmentController
   
 } from "../controllers/appointment.controller";
-
+import { userAuth } from "../middlewares/userauth";
 const router = Router();
 
 // =========================================================
@@ -32,6 +32,7 @@ const router = Router();
 
 router.post(
   "/appointment",
+  userAuth,
   createAppointmentController,
 );
 

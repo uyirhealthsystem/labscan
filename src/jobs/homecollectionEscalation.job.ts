@@ -22,18 +22,11 @@ async function runHomeCollectionEscalation(): Promise<void> {
       result,
       "Home collection escalation check completed",
     );
-
-    if (result.skippedMissingLocation > 0) {
-      logger.warn(
-        {
-          count: result.skippedMissingLocation,
-          homeCollectionIds: result.missingLocationIds,
-        },
-        "Some home collections were skipped because location is missing",
-      );
-    }
   } catch (error) {
-    logger.error(error, "Home collection escalation job failed");
+    logger.error(
+      { err: error },
+      "Home collection escalation job failed",
+    );
   } finally {
     isRunning = false;
   }
@@ -47,10 +40,8 @@ export function startHomeCollectionEscalationJob(): () => void {
 
   logger.info("Starting home collection escalation job");
 
-  // Run once immediately when the service starts.
   void runHomeCollectionEscalation();
 
-  // Run again every 60 seconds.
   interval = setInterval(() => {
     void runHomeCollectionEscalation();
   }, ESCALATION_INTERVAL_MS);
@@ -65,3 +56,4 @@ export function stopHomeCollectionEscalationJob(): void {
     logger.info("Home collection escalation job stopped");
   }
 }
+

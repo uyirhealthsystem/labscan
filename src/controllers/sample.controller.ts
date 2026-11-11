@@ -1,3 +1,4 @@
+
 import type { Request, Response } from "express";
 import { unlink } from "node:fs/promises";
 
@@ -11,8 +12,8 @@ import {
   getSampleByBarcode,
   updateSample,
   deleteSample,
-  generateCollectionOtp,
-  verifyCollectorCollectionOtp,
+  generateHomeCollectionOtp,
+  verifyCollectorHomeCollectionOtp,
   uploadCollectorSampleEvidence,
   updateCollectorSampleStatus,
   generateSampleHandoverOtp,
@@ -65,28 +66,31 @@ export const createSampleController = asyncHandler(
       notes,
     } = req.body;
 
-    if (
-      !appointmentTestId ||
-      !barcode ||
-      !sampleType
-    ) {
+    if (!appointmentTestId || !barcode || !sampleType) {
       return res.status(400).json({
         success: false,
         message: "appointmentTestId, barcode and sampleType are required",
       });
     }
 
-    const sample = await createSample({
-      appointmentTestId,
-      homeCollectionId,
-      barcode,
-      sampleType,
-      containerType,
-      condition,
-      notes,
-    });
-
-    return sendSuccess(res, 201, "Sample created successfully", sample);
+    const sample = await createSample(
+  {
+    appointmentTestId,
+    homeCollectionId,
+    barcode,
+    sampleType,
+    containerType,
+    condition,
+    notes,
+  },
+  getUserId(req),
+);
+    return sendSuccess(
+      res,
+      201,
+      "Sample created successfully",
+      sample,
+    );
   },
 );
 
@@ -95,7 +99,12 @@ export const getSamplesController = asyncHandler(
   async (_req: Request, res: Response) => {
     const samples = await getSamples();
 
-    return sendSuccess(res, 200, "Samples fetched successfully", samples);
+    return sendSuccess(
+      res,
+      200,
+      "Samples fetched successfully",
+      samples,
+    );
   },
 );
 
@@ -104,7 +113,9 @@ export const getSamplesByAppointmentTestController = asyncHandler(
   async (req: Request, res: Response) => {
     const appointmentTestId = getParam(req, "appointmentTestId");
 
-    const samples = await getSamplesByAppointmentTest(appointmentTestId);
+    const samples = await getSamplesByAppointmentTest(
+      appointmentTestId,
+    );
 
     return sendSuccess(
       res,
@@ -122,7 +133,12 @@ export const getSampleByIdController = asyncHandler(
 
     const sample = await getSampleById(sampleId);
 
-    return sendSuccess(res, 200, "Sample fetched successfully", sample);
+    return sendSuccess(
+      res,
+      200,
+      "Sample fetched successfully",
+      sample,
+    );
   },
 );
 
@@ -133,34 +149,57 @@ export const getSampleByBarcodeController = asyncHandler(
 
     const sample = await getSampleByBarcode(barcode);
 
-    return sendSuccess(res, 200, "Sample fetched successfully", sample);
+    return sendSuccess(
+      res,
+      200,
+      "Sample fetched successfully",
+      sample,
+    );
   },
 );
 
-// GENERATE COLLECTION OTP
+// GENERATE HOME COLLECTION OTP
+// OTP is generated before samples are created.
 export const generateCollectionOtpController = asyncHandler(
   async (req: Request, res: Response) => {
-    getUserId(req);
+    const userId = getUserId(req);
+    const homeCollectionId = getParam(req, "homeCollectionId");
 
-    const sampleId = getParam(req, "sampleId");
+    if (!homeCollectionId) {
+      return res.status(400).json({
+        success: false,
+        message: "homeCollectionId is required",
+      });
+    }
 
-    const result = await generateCollectionOtp(sampleId);
+    const result = await generateHomeCollectionOtp(
+      homeCollectionId,
+      userId,
+    );
 
     return sendSuccess(
       res,
       200,
-      "Collection OTP generated successfully",
+      "Home collection OTP generated successfully",
       result,
     );
   },
 );
 
-// VERIFY COLLECTION OTP - COLLECTOR ONLY
+// VERIFY HOME COLLECTION OTP - COLLECTOR ONLY
+// Verification is reusable for all samples in this collection visit.
 export const verifyCollectorCollectionOtpController = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = getUserId(req);
-    const sampleId = getParam(req, "sampleId");
+    const homeCollectionId = getParam(req, "homeCollectionId");
     const otp = getBodyString(req.body.otp);
+
+    if (!homeCollectionId) {
+      return res.status(400).json({
+        success: false,
+        message: "homeCollectionId is required",
+      });
+    }
 
     if (!/^\d{6}$/.test(otp)) {
       return res.status(400).json({
@@ -169,8 +208,8 @@ export const verifyCollectorCollectionOtpController = asyncHandler(
       });
     }
 
-    const result = await verifyCollectorCollectionOtp(
-      sampleId,
+    const result = await verifyCollectorHomeCollectionOtp(
+      homeCollectionId,
       otp,
       userId,
     );
@@ -178,7 +217,7 @@ export const verifyCollectorCollectionOtpController = asyncHandler(
     return sendSuccess(
       res,
       200,
-      "Collection OTP verified successfully",
+      "Home collection OTP verified successfully",
       result,
     );
   },
@@ -368,3 +407,10 @@ export const updateCollectorSampleStatusController = asyncHandler(
     );
   },
 );
+
+// New descriptive aliases for route imports, if preferred.
+export const generateHomeCollectionOtpController =
+  generateCollectionOtpController;
+
+export const verifyCollectorHomeCollectionOtpController =
+  verifyCollectorCollectionOtpController;
