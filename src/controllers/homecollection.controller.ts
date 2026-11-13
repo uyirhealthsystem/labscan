@@ -47,13 +47,27 @@ import {
 
 function getUserId(req: Request): string {
   const userId = req.headers["x-user-id"];
+  const userRole = req.headers["x-user-role"]
 
   if (typeof userId !== "string" || !userId.trim()) {
     throw new apiError(401, "User authentication required");
   }
 
+  if (typeof userRole !== "string" || !userRole.trim()) {
+    throw new apiError(401, "User role for authentication required");
+  }
   return userId.trim();
 }
+
+function getUserRole(req: Request): string {
+  const userRole = req.headers["x-user-role"]
+
+  if (typeof userRole !== "string" || !userRole.trim()) {
+    throw new apiError(401, "User role for authentication required");
+  }
+  return userRole.trim();
+}
+
 
 function sendSuccess(
   res: Response,
@@ -106,6 +120,7 @@ export const getHomeCollectionsController = asyncHandler(
 export const getMyHomeCollectionBookingsController = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = getUserId(req);
+    const userRole = getUserRole(req);
 
     const result = await getMyHomeCollectionBookings(userId);
 
@@ -324,7 +339,12 @@ export const getHomeCollectionHistoryController = asyncHandler(
 
 export const createCollectorController = asyncHandler(
   async (req: Request, res: Response) => {
-    const result = await createCollector(req.body);
+    const userId = getUserId(req);
+
+    const result = await createCollector({
+      ...req.body,
+      userId,
+    });
 
     return sendSuccess(
       res,

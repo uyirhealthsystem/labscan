@@ -7,6 +7,7 @@ import { notFoundHandler } from './middlewares/notFound.middleware';
 import routes from './routes';
 import { logger } from './utils/logger';
 import path from "path";
+import { userAuth } from "./middlewares/userauth";
 
 export function createApp(): Application {
   const app = express();
@@ -24,7 +25,7 @@ export function createApp(): Application {
 
   app.use("/uploads",express.static(path.join(process.cwd(), "uploads")));
   // Namespaced so the api-gateway can route every labscan path by one prefix.
-  app.use('/api/v1/labscan', routes);
+  app.use('/api/v1/labscan', userAuth, routes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
