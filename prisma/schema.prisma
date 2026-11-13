@@ -83,6 +83,7 @@ model LabTestCatalog {
   name        String
   description String?
   category    String?
+  sampleType  String
 
   fastingRequirement      FastingRequirement @default(NOT_REQUIRED)
   fastingHours            Int?

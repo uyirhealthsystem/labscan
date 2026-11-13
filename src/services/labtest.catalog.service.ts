@@ -9,6 +9,7 @@ export interface CreateLabTestCatalogInput {
   name: string;
   description?: string;
   category?: string;
+  sampleType:string;
   fastingRequirement?: "REQUIRED" | "NOT_REQUIRED" | "OPTIONAL";
   fastingHours?: number;
   preparationInstructions?: string;
@@ -54,6 +55,7 @@ export async function createLabTestCatalog(
     code: data.code,
     name: data.name,
     description: data.description,
+    sampleType:data.sampleType,
     category: data.category,
     fastingRequirement: data.fastingRequirement,
     fastingHours: data.fastingHours,

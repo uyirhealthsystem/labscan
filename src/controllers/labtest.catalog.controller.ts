@@ -26,15 +26,22 @@ export async function createLabTestCatalogController(
       description,
       category,
       status,
+      sampleType,
       fastingRequirement,
       fastingHours,
       preparationInstructions,
     } = req.body;
 
-    if (!code || !name) {
+    if (!code || !name ||!sampleType) {
       return res.status(400).json({
         status: "error",
-        message: "code and name are required",
+        message: "code, name and sampletype are required",
+      });
+    }
+    if (!sampleType) {
+      return res.status(400).json({
+        status: "error",
+        message: "sampletype are required",
       });
     }
 
@@ -44,6 +51,7 @@ export async function createLabTestCatalogController(
       description,
       category,
       status,
+      sampleType,
       fastingRequirement,
       fastingHours,
       preparationInstructions,
