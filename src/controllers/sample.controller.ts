@@ -7,6 +7,7 @@ import { asyncHandler } from "../utils/asyncHandler";
 import {
   createSample,
   getSamples,
+  getCollectorSamples,
   getSamplesByAppointmentTest,
   getSampleById,
   getSampleByBarcode,
@@ -25,7 +26,11 @@ type AuthenticatedRequest = Request & {
 };
 
 const getUserId = (req: Request): string => {
-  const userId = (req as AuthenticatedRequest).userId;
+  const userId =
+    (req as AuthenticatedRequest).userId ||
+    (req.headers["x-user-id"] as string | undefined);
+
+  console.log("Collector User ID:", userId);
 
   if (!userId) {
     throw new Error("Authenticated user ID is missing");
@@ -104,6 +109,20 @@ export const getSamplesController = asyncHandler(
       200,
       "Samples fetched successfully",
       samples,
+    );
+  },
+);
+
+// GET AUTHENTICATED COLLECTOR SAMPLES
+export const getCollectorSamplesController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const result = await getCollectorSamples(getUserId(req));
+
+    return sendSuccess(
+      res,
+      200,
+      "Collector samples fetched successfully",
+      result,
     );
   },
 );

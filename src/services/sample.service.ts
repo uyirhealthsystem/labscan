@@ -695,6 +695,61 @@ export const getSamples = async () =>
     },
   });
 
+  // =========================================================
+// GET SAMPLES FOR AUTHENTICATED COLLECTOR
+// =========================================================
+
+export const getCollectorSamples = async (userId: string) => {
+  const collector = await prisma.collector.findUnique({
+    where: { userId },
+    select: {
+      collectorId: true,
+      name: true,
+    },
+  });
+
+  if (!collector) {
+    throw new Error("Collector not found");
+  }
+
+  const samples = await prisma.sample.findMany({
+    where: {
+      collectorId: collector.collectorId,
+      homeCollectionId: {
+        not: null,
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: {
+      appointmentTest: {
+        include: {
+          appointment: true,
+          labTest: {
+            include: {
+              testCatalog: true,
+            },
+          },
+        },
+      },
+      collector: true,
+      homeCollection: true,
+      trackingEvents: {
+        orderBy: {
+          createdAt: "desc",
+        },
+      },
+      evidence: true,
+    },
+  });
+
+  return {
+    collector,
+    total: samples.length,
+    samples,
+  };
+};
 // =========================================================
 // GET SAMPLES BY APPOINTMENT TEST
 // =========================================================

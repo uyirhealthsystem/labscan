@@ -4,6 +4,7 @@ import { Router } from "express";
 import {
   createSampleController,
   getSamplesController,
+  getCollectorSamplesController,
   getSamplesByAppointmentTestController,
   getSampleByBarcodeController,
   getSampleByIdController,
@@ -32,6 +33,10 @@ router.use(userAuth);
 router.post("/sample", createSampleController);
 
 router.get("/samples", getSamplesController);
+router.get(
+  "/collector/samples",
+  getCollectorSamplesController,
+);
 
 router.get(
   "/sample/appointmenttest/:appointmentTestId",

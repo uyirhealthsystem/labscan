@@ -457,43 +457,48 @@ export async function getAppointments() {
 // =========================================================
 
 
-export async function getAppointmentsByLabId(labId: string) {
-  return prisma.appointment.findMany({
+export async function getAppointmentsByLabId(
+  labId: string,
+  userId: string,
+) {
+  // Verify that this lab belongs to the authenticated user.
+  const lab = await prisma.lab.findFirst({
     where: {
       labId,
+      labUserId: userId,
+      status: "ACTIVE",
     },
+    select: {
+      labId: true,
+    },
+  });
 
+  if (!lab) {
+    throw new Error("Lab not found or access denied");
+  }
+
+  return prisma.appointment.findMany({
+    where: {
+      labId: lab.labId,
+    },
     orderBy: {
       appointmentDate: "desc",
     },
-
     select: {
-      // =========================
-      // APPOINTMENT
-      // =========================
       appointmentId: true,
       bookingId: true,
       patientId: true,
-
       appointmentType: true,
       appointmentMode: true,
-
       appointmentDate: true,
       startTime: true,
       endTime: true,
-
       address: true,
       status: true,
       patientNotes: true,
-
       createdAt: true,
       updatedAt: true,
 
-      // =========================
-      // LAB
-      // Do NOT expose labUserId,
-      // phone, email
-      // =========================
       lab: {
         select: {
           labId: true,
@@ -505,132 +510,31 @@ export async function getAppointmentsByLabId(labId: string) {
         },
       },
 
-      // =========================
-      // SCAN CENTER
-      // =========================
-      scanCenter: {
-        select: {
-          scanCenterId: true,
-          name: true,
-          registrationNumber: true,
-          address: true,
-          districtId: true,
-          status: true,
-        },
-      },
-
-      // =========================
-      // LAB TESTS
-      // =========================
       tests: {
         select: {
           appointmentTestId: true,
           labTestId: true,
           price: true,
           status: true,
-
           fastingRequirement: true,
           fastingHours: true,
           preparationInstructions: true,
 
-          report: {
-            select: {
-              reportId: true,
-              status: true,
-              uploadedAt: true,
-              sentAt: true,
-            },
-          },
-
           labTest: {
             select: {
               labTestId: true,
-
               testCatalog: {
                 select: {
                   testCatalogId: true,
                   code: true,
                   name: true,
-                },
-              },
-            },
-          },
-        },
-      },
-
-      // =========================
-      // SCAN SERVICES
-      // =========================
-      services: {
-        select: {
-          appointmentServiceId: true,
-          scanServiceId: true,
-          equipmentId: true,
-          price: true,
-          status: true,
-
-          scanService: {
-            select: {
-              scanServiceId: true,
-
-              serviceCatalog: {
-                select: {
-                  serviceCatalogId: true,
-                  code: true,
-                  name: true,
-                },
-              },
-            },
-          },
-        },
-      },
-
-      // =========================
-      // HOME COLLECTION
-      // =========================
-      homeCollection: {
-        select: {
-          homeCollectionId: true,
-          address: true,
-          specialInstructions: true,
-          status: true,
-          assignedAt: true,
-          collectedAt: true,
-          completedAt: true,
-
-          // Collector assignment
-          collectorAssignment: {
-            select: {
-              collectorAssignmentId: true,
-              assignedAt: true,
-              status: true,
-
-              collector: {
-                select: {
-                  collectorId: true,
-                  name: true,
-                  role: true,
-                  qualificationStatus: true,
-                  status: true,
+                  sampleType: true,
                 },
               },
             },
           },
 
-          // Collection tracking
-          trackingEvents: {
-            select: {
-              trackingId: true,
-              status: true,
-              notes: true,
-              createdAt: true,
-            },
-            orderBy: {
-              createdAt: "desc",
-            },
-          },
-
-          // Samples
+          // Important: retrieve samples through AppointmentTest.
           samples: {
             select: {
               sampleId: true,
@@ -649,6 +553,47 @@ export async function getAppointmentsByLabId(labId: string) {
                   collectorId: true,
                   name: true,
                   role: true,
+                  collectorType: true,
+                },
+              },
+
+              trackingEvents: {
+                select: {
+                  sampleTrackingId: true,
+                  status: true,
+                  notes: true,
+                  createdAt: true,
+                },
+                orderBy: {
+                  createdAt: "desc",
+                },
+              },
+
+              evidence: {
+                select: {
+                  evidenceId: true,
+                  type: true,
+                  fileUrl: true,
+                  fileName: true,
+                  createdAt: true,
+                },
+              },
+            },
+          },
+
+          report: {
+            select: {
+              reportId: true,
+              status: true,
+              uploadedAt: true,
+              sentAt: true,
+              files: {
+                select: {
+                  reportFileId: true,
+                  fileName: true,
+                  fileUrl: true,
+                  fileType: true,
+                  uploadedAt: true,
                 },
               },
             },
@@ -656,9 +601,73 @@ export async function getAppointmentsByLabId(labId: string) {
         },
       },
 
-      // =========================
-      // CANCELLATION
-      // =========================
+      homeCollection: {
+        select: {
+          homeCollectionId: true,
+          address: true,
+          specialInstructions: true,
+          status: true,
+          assignedAt: true,
+          collectedAt: true,
+          completedAt: true,
+
+          collectorAssignment: {
+            select: {
+              collectorAssignmentId: true,
+              assignedAt: true,
+              status: true,
+              source: true,
+              collector: {
+                select: {
+                  collectorId: true,
+                  name: true,
+                  role: true,
+                  collectorType: true,
+                  qualificationStatus: true,
+                  status: true,
+                },
+              },
+            },
+          },
+
+          trackingEvents: {
+            select: {
+              trackingId: true,
+              status: true,
+              notes: true,
+              createdAt: true,
+            },
+            orderBy: {
+              createdAt: "desc",
+            },
+          },
+
+          // Retain these because they are useful for collection-level tracking.
+          samples: {
+            select: {
+              sampleId: true,
+              barcode: true,
+              sampleType: true,
+              containerType: true,
+              status: true,
+              collectedAt: true,
+              receivedAt: true,
+              condition: true,
+              rejectionReason: true,
+              notes: true,
+              collector: {
+                select: {
+                  collectorId: true,
+                  name: true,
+                  role: true,
+                  collectorType: true,
+                },
+              },
+            },
+          },
+        },
+      },
+
       cancellation: {
         select: {
           cancellationId: true,
@@ -668,9 +677,6 @@ export async function getAppointmentsByLabId(labId: string) {
         },
       },
 
-      // =========================
-      // RESCHEDULES
-      // =========================
       reschedules: {
         select: {
           rescheduleId: true,
@@ -688,9 +694,6 @@ export async function getAppointmentsByLabId(labId: string) {
         },
       },
 
-      // =========================
-      // REPORT
-      // =========================
       reports: {
         select: {
           reportId: true,
@@ -698,12 +701,18 @@ export async function getAppointmentsByLabId(labId: string) {
           status: true,
           uploadedAt: true,
           sentAt: true,
+          files: {
+            select: {
+              reportFileId: true,
+              fileName: true,
+              fileUrl: true,
+              fileType: true,
+              uploadedAt: true,
+            },
+          },
         },
       },
 
-      // =========================
-      // EARNING
-      // =========================
       earning: {
         select: {
           earningId: true,

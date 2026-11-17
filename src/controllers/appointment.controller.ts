@@ -29,6 +29,7 @@ import {
   translateResponse,
 } from "../utils/translate.response";
 
+import { requireUserId } from "../utils/requireuser";
 // =========================================================
 // APPOINTMENT
 // =========================================================
@@ -178,8 +179,21 @@ export async function getAppointmentsByLabIdController(
   res: Response,
 ) {
   try {
+    const userId = requireUserId(req);
     const { labId } = req.params;
-    const appointments = await getAppointmentsByLabId(labId);
+
+    if (!labId) {
+      return res.status(400).json({
+        status: "error",
+        message: "Lab ID is required",
+      });
+    }
+
+    const appointments = await getAppointmentsByLabId(
+      labId,
+      userId,
+    );
+
     const language = getRequestedLanguage(req);
 
     return res.status(200).json({
@@ -187,9 +201,28 @@ export async function getAppointmentsByLabIdController(
       data: await translateResponse(appointments, language),
     });
   } catch (error: any) {
+    const message = error?.message || "Failed to fetch lab appointments";
+
+    if (
+      message === "Authentication required" ||
+      message === "User ID required"
+    ) {
+      return res.status(401).json({
+        status: "error",
+        message,
+      });
+    }
+
+    if (message === "Lab not found or access denied") {
+      return res.status(403).json({
+        status: "error",
+        message,
+      });
+    }
+
     return res.status(500).json({
       status: "error",
-      message: error.message,
+      message,
     });
   }
 }
