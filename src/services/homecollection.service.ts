@@ -1,5 +1,6 @@
 
 import { prisma } from "./prisma.service";
+import { apiError } from "../utils/apiError";
 
 // =========================================================
 // CONSTANTS
@@ -1006,7 +1007,8 @@ export async function getMyCollectorProfile(userId: string) {
   });
 
   if (!collector) {
-    throw new Error(
+    throw new apiError(
+      404,
       "Collector profile not found for the logged-in user",
     );
   }
