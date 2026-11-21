@@ -894,7 +894,8 @@ export async function createCollector(data: CreateCollectorInput) {
   });
 
   if (existingCollector) {
-    throw new Error(
+    throw new apiError(
+      409,
       "A collector profile already exists for this user",
     );
   }
