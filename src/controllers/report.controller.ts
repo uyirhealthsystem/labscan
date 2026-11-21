@@ -23,6 +23,7 @@ import {
   getEarningByAppointment,
   updateEarning,
   deleteEarning,
+  getCollectorEarningsByUserId,
 } from "../services/report.service";
 
 import {
@@ -435,6 +436,34 @@ export const getEarningsSummaryController = async (
     });
   }
 };
+
+export async function getCollectorEarningsController(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    const userId = req.header("x-user-id")?.trim();
+    if (!userId) {
+      res.status(401).json({
+        status: "error",
+        message: "Authenticated user ID is required",
+      });
+      return;
+    }
+
+    const result = await getCollectorEarningsByUserId(userId);
+    const language = getRequestedLanguage(req);
+    res.status(200).json({
+      status: "success",
+      data: await translateResponse(result, language),
+    });
+  } catch (error) {
+    res.status(error instanceof Error && /not found/i.test(error.message) ? 404 : 500).json({
+      status: "error",
+      message: error instanceof Error ? error.message : "Failed to fetch collector earnings",
+    });
+  }
+}
 
 export async function getEarningByIdController(
   req: Request,

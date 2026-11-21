@@ -1,7 +1,33 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
+const lab_route_1 = __importDefault(require("../routes/lab.route"));
+const scan_route_1 = __importDefault(require("../routes/scan.route"));
+const equipment_route_1 = __importDefault(require("../routes/equipment.route"));
+const appointment_route_1 = __importDefault(require("../routes/appointment.route"));
+const appointmentlifecycle_route_1 = __importDefault(require("../routes/appointmentlifecycle.route"));
+const homecollection_route_1 = __importDefault(require("../routes/homecollection.route"));
+const report_route_1 = __importDefault(require("../routes/report.route"));
+const sample_route_1 = __importDefault(require("../routes/sample.route"));
+const labscan_route_1 = __importDefault(require("../routes/labscan.route"));
+const timeslot_route_1 = __importDefault(require("../routes/timeslot.route"));
+const providersetting_route_1 = __importDefault(require("../routes/providersetting.route"));
+const translate_route_1 = __importDefault(require("../routes/translate.route"));
 const router = (0, express_1.Router)();
-router.use('/');
+router.use('/', lab_route_1.default);
+router.use('/', scan_route_1.default);
+router.use('/', equipment_route_1.default);
+router.use('/', appointment_route_1.default);
+router.use('/', appointmentlifecycle_route_1.default);
+router.use('/', sample_route_1.default);
+router.use('/', homecollection_route_1.default);
+router.use('/', report_route_1.default);
+router.use('/', labscan_route_1.default);
+router.use('/', timeslot_route_1.default);
+router.use('/', providersetting_route_1.default);
+router.use('/', translate_route_1.default);
 exports.default = router;
 //# sourceMappingURL=index.js.map

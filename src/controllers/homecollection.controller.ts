@@ -444,6 +444,20 @@ export const getMyCollectorProfileController = asyncHandler(
   },
 );
 
+export const updateMyCollectorProfileController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const profile = await getMyCollectorProfile(userId);
+    const result = await updateCollector(profile.collectorId, req.body);
+
+    return sendSuccess(
+      res,
+      "Collector profile updated successfully",
+      result,
+    );
+  },
+);
+
 export const updateMyCollectorLocationController = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = getUserId(req);

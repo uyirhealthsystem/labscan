@@ -467,6 +467,7 @@ export async function deleteReportFile(
 
 export interface CreateEarningInput {
   appointmentId: string;
+  collectorId?: string;
   amount: number | string;
   status?: "PENDING" | "EARNED" | "PAID";
   earnedAt?: string;
@@ -483,6 +484,13 @@ export async function createEarning(
 ) {
   const appointment = await prisma.appointment.findUnique({
     where: { appointmentId: data.appointmentId },
+    include: {
+      homeCollection: {
+        include: {
+          collectorAssignment: true,
+        },
+      },
+    },
   });
 
   if (!appointment) {
@@ -500,6 +508,10 @@ export async function createEarning(
   return prisma.earning.create({
     data: {
       appointmentId: data.appointmentId,
+      collectorId:
+        data.collectorId ??
+        appointment.homeCollection?.collectorAssignment?.collectorId ??
+        null,
       amount: data.amount,
       status: data.status,
       earnedAt: data.earnedAt
@@ -558,6 +570,45 @@ export const getEarningsSummary = async () => {
     pendingEarnings,
   };
 };
+
+export async function getCollectorEarningsByUserId(userId: string) {
+  const collector = await prisma.collector.findUnique({
+    where: { userId },
+    select: {
+      collectorId: true,
+      name: true,
+      collectorType: true,
+    },
+  });
+
+  if (!collector) {
+    throw new Error("Collector profile not found");
+  }
+
+  const earnings = await prisma.earning.findMany({
+    where: { collectorId: collector.collectorId },
+    include: {
+      appointment: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const total = earnings.reduce((sum, earning) => sum + Number(earning.amount), 0);
+  const completed = earnings
+    .filter((earning) => earning.status === "EARNED" || earning.status === "PAID")
+    .reduce((sum, earning) => sum + Number(earning.amount), 0);
+  const pending = earnings
+    .filter((earning) => earning.status === "PENDING")
+    .reduce((sum, earning) => sum + Number(earning.amount), 0);
+
+  return {
+    collector,
+    total,
+    completed,
+    pending,
+    earnings,
+  };
+}
 
 export async function getEarningById(
   earningId: string,

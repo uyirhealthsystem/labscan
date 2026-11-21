@@ -15,6 +15,7 @@ import {
   getCollectorAssignmentsController,
   getCollectorByIdController,
   getMyCollectorProfileController,
+  updateMyCollectorProfileController,
   getCollectorsByLabController,
   getCollectorsController,
 
@@ -140,6 +141,11 @@ router.get(
 router.patch(
   "/collectors/me/location",
   updateMyCollectorLocationController,
+);
+
+router.patch(
+  "/collectors/me/profile",
+  updateMyCollectorProfileController,
 );
 
 // Collector's bookings and offers

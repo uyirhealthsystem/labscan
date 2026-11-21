@@ -440,11 +440,11 @@ model HomeCollection {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  appointment         Appointment              @relation(fields: [appointmentId], references: [appointmentId], onDelete: Cascade)
-  collectorAssignment CollectorAssignment?
-  trackingEvents      HomeCollectionTracking[]
-  samples             Sample[]
-  bookingOffers       CollectorBookingOffer[]
+  appointment                Appointment                     @relation(fields: [appointmentId], references: [appointmentId], onDelete: Cascade)
+  collectorAssignment        CollectorAssignment?
+  trackingEvents             HomeCollectionTracking[]
+  samples                    Sample[]
+  bookingOffers              CollectorBookingOffer[]
   collectionOtpVerifications HomeCollectionOtpVerification[]
 
   @@index([status])
@@ -474,7 +474,7 @@ model HomeCollectionConfirmation {
 }
 
 model HomeCollectionOtpVerification {
-  verificationId   String   @id @default(uuid())
+  verificationId   String @id @default(uuid())
   homeCollectionId String
 
   otpHash String
@@ -486,11 +486,12 @@ model HomeCollectionOtpVerification {
 
   attempts Int @default(0)
 
- homeCollection HomeCollection @relation(fields: [homeCollectionId], references: [homeCollectionId], onDelete: Cascade)
+  homeCollection HomeCollection @relation(fields: [homeCollectionId], references: [homeCollectionId], onDelete: Cascade)
 
   @@index([homeCollectionId])
   @@index([expiresAt])
 }
+
 // =========================================================
 // COLLECTOR
 // =========================================================
@@ -532,6 +533,7 @@ model Collector {
 
   labApprovals  CollectorLabApproval[]
   bookingOffers CollectorBookingOffer[]
+  earnings      Earning[]
 
   @@index([labId])
   @@index([collectorType])
@@ -648,7 +650,7 @@ model Sample {
   sampleType    String
   containerType String?
 
-  status       SampleStatus @default(PENDING_COLLECTION)
+  status SampleStatus @default(PENDING_COLLECTION)
 
   collectedAt DateTime?
   receivedAt  DateTime?
@@ -789,7 +791,8 @@ model ReportFile {
 model Earning {
   earningId String @id @default(uuid())
 
-  appointmentId String @unique
+  appointmentId String  @unique
+  collectorId   String?
 
   amount Decimal
 
@@ -800,9 +803,11 @@ model Earning {
   updatedAt DateTime  @updatedAt
 
   appointment Appointment @relation(fields: [appointmentId], references: [appointmentId], onDelete: Cascade)
+  collector   Collector?  @relation(fields: [collectorId], references: [collectorId], onDelete: SetNull)
 
   @@index([status])
   @@index([earnedAt])
+  @@index([collectorId])
 }
 
 // =========================================================

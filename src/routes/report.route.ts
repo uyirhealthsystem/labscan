@@ -23,6 +23,7 @@ import {
   getEarningByAppointmentController,
   updateEarningController,
   deleteEarningController,
+  getCollectorEarningsController,
 } from "../controllers/report.controller";
 
 const router = Router();
@@ -110,6 +111,11 @@ router.get(
 router.get(
   "/earnings",
   getEarningsSummaryController,
+);
+
+router.get(
+  "/collectors/me/earnings",
+  getCollectorEarningsController,
 );
 
 router.get(

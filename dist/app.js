@@ -12,6 +12,8 @@ const error_middleware_1 = require("./middlewares/error.middleware");
 const notFound_middleware_1 = require("./middlewares/notFound.middleware");
 const routes_1 = __importDefault(require("./routes"));
 const logger_1 = require("./utils/logger");
+const path_1 = __importDefault(require("path"));
+const userauth_1 = require("./middlewares/userauth");
 function createApp() {
     const app = (0, express_1.default)();
     app.use((0, helmet_1.default)());
@@ -19,7 +21,13 @@ function createApp() {
     app.use(express_1.default.json());
     app.use(express_1.default.urlencoded({ extended: true }));
     app.use((0, pino_http_1.default)({ logger: logger_1.logger }));
-    app.use('/api/v1', routes_1.default);
+    // Liveness check for PM2 / load balancers / k8s probes.
+    app.get('/health', (_req, res) => {
+        res.status(200).json({ status: 'ok' });
+    });
+    app.use("/uploads", express_1.default.static(path_1.default.join(process.cwd(), "uploads")));
+    // Namespaced so the api-gateway can route every labscan path by one prefix.
+    app.use('/api/v1/labscan', userauth_1.userAuth, routes_1.default);
     app.use(notFound_middleware_1.notFoundHandler);
     app.use(error_middleware_1.errorHandler);
     return app;
