@@ -14,13 +14,15 @@ const routes_1 = __importDefault(require("./routes"));
 const logger_1 = require("./utils/logger");
 const path_1 = __importDefault(require("path"));
 const userauth_1 = require("./middlewares/userauth");
+const patient_controller_1 = require("./controllers/patient.controller");
 function createApp() {
     const app = (0, express_1.default)();
     app.use((0, helmet_1.default)());
     app.use((0, cors_1.default)());
+    app.use((0, pino_http_1.default)({ logger: logger_1.logger }));
+    app.post("/api/v1/labscan/webhooks/razorpay", express_1.default.raw({ type: "application/json" }), patient_controller_1.razorpayWebhookController);
     app.use(express_1.default.json());
     app.use(express_1.default.urlencoded({ extended: true }));
-    app.use((0, pino_http_1.default)({ logger: logger_1.logger }));
     // Liveness check for PM2 / load balancers / k8s probes.
     app.get('/health', (_req, res) => {
         res.status(200).json({ status: 'ok' });

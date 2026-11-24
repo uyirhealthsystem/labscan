@@ -9,7 +9,7 @@
 * 🟢 You can import this file directly.
 */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CollectorAssignmentSource = exports.CollectionAllocationStage = exports.SupportTicketCategory = exports.SupportTicketPriority = exports.SupportTicketStatus = exports.PayoutStatus = exports.BankAccountStatus = exports.SampleEvidenceType = exports.SampleOtpPurpose = exports.SampleTrackingStatus = exports.SampleCondition = exports.SampleStatus = exports.FastingRequirement = exports.QualificationStatus = exports.CollectorBookingOfferStatus = exports.CollectorLabApprovalStatus = exports.CollectorType = exports.CollectorRole = exports.EarningStatus = exports.ReportStatus = exports.HomeCollectionTrackingStatus = exports.CollectorAssignmentStatus = exports.CollectorStatus = exports.ConfirmationStatus = exports.HomeCollectionStatus = exports.CancellationReason = exports.AppointmentServiceStatus = exports.AppointmentTestStatus = exports.AppointmentStatus = exports.AppointmentMode = exports.AppointmentType = exports.Gender = exports.EquipmentStatus = exports.CatalogStatus = exports.ScanServiceStatus = exports.ScanCenterStatus = exports.LabTestStatus = exports.LabStatus = void 0;
+exports.CollectorAssignmentSource = exports.CollectionAllocationStage = exports.SupportTicketCategory = exports.SupportTicketPriority = exports.SupportTicketStatus = exports.PayoutStatus = exports.BankAccountStatus = exports.SampleEvidenceType = exports.SampleOtpPurpose = exports.SampleTrackingStatus = exports.SampleCondition = exports.SampleStatus = exports.FastingRequirement = exports.QualificationStatus = exports.CollectorBookingOfferStatus = exports.CollectorLabApprovalStatus = exports.CollectorType = exports.CollectorRole = exports.EarningStatus = exports.ReportStatus = exports.HomeCollectionTrackingStatus = exports.CollectorAssignmentStatus = exports.CollectorStatus = exports.ConfirmationStatus = exports.HomeCollectionStatus = exports.CancellationReason = exports.AppointmentServiceStatus = exports.AppointmentTestStatus = exports.AppointmentPaymentStatus = exports.AppointmentStatus = exports.AppointmentMode = exports.AppointmentType = exports.Gender = exports.EquipmentStatus = exports.CatalogStatus = exports.ScanServiceStatus = exports.ScanCenterStatus = exports.LabTestStatus = exports.LabStatus = void 0;
 exports.LabStatus = {
     ACTIVE: 'ACTIVE',
     INACTIVE: 'INACTIVE'
@@ -54,6 +54,13 @@ exports.AppointmentStatus = {
     COMPLETED: 'COMPLETED',
     CANCELLED: 'CANCELLED',
     RESCHEDULED: 'RESCHEDULED'
+};
+exports.AppointmentPaymentStatus = {
+    CREATED: 'CREATED',
+    PAID: 'PAID',
+    FAILED: 'FAILED',
+    CANCELLED: 'CANCELLED',
+    EXPIRED: 'EXPIRED'
 };
 exports.AppointmentTestStatus = {
     PENDING: 'PENDING',

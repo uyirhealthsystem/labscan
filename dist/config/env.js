@@ -15,5 +15,10 @@ exports.env = {
         clientId: process.env.KAFKA_CLIENT_ID ?? "labscan-service",
         groupId: process.env.KAFKA_GROUP_ID ?? "labscan-service-group",
     },
+    razorpay: {
+        keyId: process.env.RAZORPAY_KEY_ID ?? "",
+        keySecret: process.env.RAZORPAY_KEY_SECRET ?? "",
+        webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET ?? "",
+    },
 };
 //# sourceMappingURL=env.js.map

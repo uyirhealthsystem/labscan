@@ -286,6 +286,7 @@ model Appointment {
   homeCollection HomeCollection?
   reports        Report[]
   earning        Earning?
+  payments       AppointmentPayment[]
 
   @@index([patientId])
   @@index([labId])
@@ -294,6 +295,31 @@ model Appointment {
   @@index([status])
   @@index([appointmentType])
   @@index([appointmentMode])
+}
+
+model AppointmentPayment {
+  paymentId           String                  @id @default(uuid())
+  appointmentId       String
+  razorpayPaymentLinkId String                @unique
+  razorpayPaymentId   String?                 @unique
+  status              AppointmentPaymentStatus @default(CREATED)
+  amount              Decimal
+  currency            String                  @default("INR")
+  checkoutUrl         String
+  expiresAt           DateTime?
+  paidAt              DateTime?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  appointment Appointment @relation(fields: [appointmentId], references: [appointmentId], onDelete: Cascade)
+
+  @@index([appointmentId, status])
+}
+
+model RazorpayWebhookEvent {
+  eventId     String   @id
+  eventType   String
+  processedAt DateTime @default(now())
 }
 
 // =========================================================
@@ -1051,6 +1077,14 @@ enum AppointmentStatus {
   COMPLETED
   CANCELLED
   RESCHEDULED
+}
+
+enum AppointmentPaymentStatus {
+  CREATED
+  PAID
+  FAILED
+  CANCELLED
+  EXPIRED
 }
 
 enum AppointmentTestStatus {

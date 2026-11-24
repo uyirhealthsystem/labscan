@@ -1,0 +1,23 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const appointment_controller_1 = require("../controllers/appointment.controller");
+const patient_controller_1 = require("../controllers/patient.controller");
+const requirepatient_1 = require("../utils/requirepatient");
+const router = (0, express_1.Router)();
+router.use(requirepatient_1.requirePatient);
+router.get("/labs", patient_controller_1.getPatientLabsController);
+router.get("/scan-centers", patient_controller_1.getPatientScanCentersController);
+router.get("/time-slots", patient_controller_1.getPatientTimeSlotsController);
+router.get("/appointments", patient_controller_1.getPatientAppointmentsController);
+router.post("/appointments", appointment_controller_1.createAppointmentController);
+router.get("/home-collections", patient_controller_1.getPatientHomeCollectionsController);
+router.get("/home-collections/history", patient_controller_1.getPatientHomeCollectionHistoryController);
+router.get("/home-collections/:homeCollectionId", patient_controller_1.getPatientHomeCollectionController);
+router.get("/home-collections/:homeCollectionId/tracking", patient_controller_1.getPatientHomeCollectionTrackingController);
+router.get("/appointments/:appointmentId", patient_controller_1.getPatientAppointmentController);
+router.get("/appointments/:appointmentId/reports", patient_controller_1.getPatientAppointmentReportsController);
+router.post("/appointments/:appointmentId/payment", patient_controller_1.createPatientPaymentLinkController);
+router.get("/reports/:reportId/files/:reportFileId", patient_controller_1.downloadPatientReportFileController);
+exports.default = router;
+//# sourceMappingURL=patient.route.js.map

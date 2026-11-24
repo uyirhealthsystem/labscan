@@ -16,6 +16,7 @@ const labscan_route_1 = __importDefault(require("../routes/labscan.route"));
 const timeslot_route_1 = __importDefault(require("../routes/timeslot.route"));
 const providersetting_route_1 = __importDefault(require("../routes/providersetting.route"));
 const translate_route_1 = __importDefault(require("../routes/translate.route"));
+const patient_route_1 = __importDefault(require("../routes/patient.route"));
 const router = (0, express_1.Router)();
 router.use('/', lab_route_1.default);
 router.use('/', scan_route_1.default);
@@ -28,6 +29,7 @@ router.use('/', report_route_1.default);
 router.use('/', labscan_route_1.default);
 router.use('/', timeslot_route_1.default);
 router.use('/', providersetting_route_1.default);
+router.use('/patient', patient_route_1.default);
 router.use('/', translate_route_1.default);
 exports.default = router;
 //# sourceMappingURL=index.js.map

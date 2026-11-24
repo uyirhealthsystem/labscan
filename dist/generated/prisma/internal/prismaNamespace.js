@@ -48,8 +48,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ProviderSettingsScalarFieldEnum = exports.PayoutScalarFieldEnum = exports.ProviderBankAccountScalarFieldEnum = exports.TimeSlotScalarFieldEnum = exports.EarningScalarFieldEnum = exports.ReportFileScalarFieldEnum = exports.ReportScalarFieldEnum = exports.SampleOtpVerificationScalarFieldEnum = exports.SampleTrackingScalarFieldEnum = exports.SampleScalarFieldEnum = exports.HomeCollectionTrackingScalarFieldEnum = exports.CollectorAssignmentScalarFieldEnum = exports.CollectorBookingOfferScalarFieldEnum = exports.CollectorLabApprovalScalarFieldEnum = exports.CollectorScalarFieldEnum = exports.HomeCollectionOtpVerificationScalarFieldEnum = exports.HomeCollectionConfirmationScalarFieldEnum = exports.HomeCollectionScalarFieldEnum = exports.RescheduleScalarFieldEnum = exports.CancellationScalarFieldEnum = exports.AppointmentServiceScalarFieldEnum = exports.AppointmentTestScalarFieldEnum = exports.AppointmentScalarFieldEnum = exports.EquipmentServiceScalarFieldEnum = exports.EquipmentScalarFieldEnum = exports.ScanServiceCatalogScalarFieldEnum = exports.ScanServiceScalarFieldEnum = exports.ScanCenterScalarFieldEnum = exports.LabTestCatalogScalarFieldEnum = exports.LabTestScalarFieldEnum = exports.LabScalarFieldEnum = exports.TransactionIsolationLevel = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.prismaVersion = exports.getExtensionContext = exports.Decimal = exports.Sql = exports.raw = exports.join = exports.empty = exports.sql = exports.PrismaClientValidationError = exports.PrismaClientInitializationError = exports.PrismaClientRustPanicError = exports.PrismaClientUnknownRequestError = exports.PrismaClientKnownRequestError = void 0;
-exports.defineExtension = exports.JsonNullValueFilter = exports.NullsOrder = exports.QueryMode = exports.JsonNullValueInput = exports.SortOrder = exports.SampleEvidenceScalarFieldEnum = exports.SupportTicketScalarFieldEnum = void 0;
+exports.ProviderBankAccountScalarFieldEnum = exports.TimeSlotScalarFieldEnum = exports.EarningScalarFieldEnum = exports.ReportFileScalarFieldEnum = exports.ReportScalarFieldEnum = exports.SampleOtpVerificationScalarFieldEnum = exports.SampleTrackingScalarFieldEnum = exports.SampleScalarFieldEnum = exports.HomeCollectionTrackingScalarFieldEnum = exports.CollectorAssignmentScalarFieldEnum = exports.CollectorBookingOfferScalarFieldEnum = exports.CollectorLabApprovalScalarFieldEnum = exports.CollectorScalarFieldEnum = exports.HomeCollectionOtpVerificationScalarFieldEnum = exports.HomeCollectionConfirmationScalarFieldEnum = exports.HomeCollectionScalarFieldEnum = exports.RescheduleScalarFieldEnum = exports.CancellationScalarFieldEnum = exports.AppointmentServiceScalarFieldEnum = exports.AppointmentTestScalarFieldEnum = exports.RazorpayWebhookEventScalarFieldEnum = exports.AppointmentPaymentScalarFieldEnum = exports.AppointmentScalarFieldEnum = exports.EquipmentServiceScalarFieldEnum = exports.EquipmentScalarFieldEnum = exports.ScanServiceCatalogScalarFieldEnum = exports.ScanServiceScalarFieldEnum = exports.ScanCenterScalarFieldEnum = exports.LabTestCatalogScalarFieldEnum = exports.LabTestScalarFieldEnum = exports.LabScalarFieldEnum = exports.TransactionIsolationLevel = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.prismaVersion = exports.getExtensionContext = exports.Decimal = exports.Sql = exports.raw = exports.join = exports.empty = exports.sql = exports.PrismaClientValidationError = exports.PrismaClientInitializationError = exports.PrismaClientRustPanicError = exports.PrismaClientUnknownRequestError = exports.PrismaClientKnownRequestError = void 0;
+exports.defineExtension = exports.JsonNullValueFilter = exports.NullsOrder = exports.QueryMode = exports.JsonNullValueInput = exports.SortOrder = exports.SampleEvidenceScalarFieldEnum = exports.SupportTicketScalarFieldEnum = exports.ProviderSettingsScalarFieldEnum = exports.PayoutScalarFieldEnum = void 0;
 const runtime = __importStar(require("@prisma/client/runtime/client"));
 /**
  * Prisma Errors
@@ -113,6 +113,8 @@ exports.ModelName = {
     Equipment: 'Equipment',
     EquipmentService: 'EquipmentService',
     Appointment: 'Appointment',
+    AppointmentPayment: 'AppointmentPayment',
+    RazorpayWebhookEvent: 'RazorpayWebhookEvent',
     AppointmentTest: 'AppointmentTest',
     AppointmentService: 'AppointmentService',
     Cancellation: 'Cancellation',
@@ -252,6 +254,25 @@ exports.AppointmentScalarFieldEnum = {
     patientNotes: 'patientNotes',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
+};
+exports.AppointmentPaymentScalarFieldEnum = {
+    paymentId: 'paymentId',
+    appointmentId: 'appointmentId',
+    razorpayPaymentLinkId: 'razorpayPaymentLinkId',
+    razorpayPaymentId: 'razorpayPaymentId',
+    status: 'status',
+    amount: 'amount',
+    currency: 'currency',
+    checkoutUrl: 'checkoutUrl',
+    expiresAt: 'expiresAt',
+    paidAt: 'paidAt',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+};
+exports.RazorpayWebhookEventScalarFieldEnum = {
+    eventId: 'eventId',
+    eventType: 'eventType',
+    processedAt: 'processedAt'
 };
 exports.AppointmentTestScalarFieldEnum = {
     appointmentTestId: 'appointmentTestId',

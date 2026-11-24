@@ -8,15 +8,23 @@ import routes from './routes';
 import { logger } from './utils/logger';
 import path from "path";
 import { userAuth } from "./middlewares/userauth";
+import { razorpayWebhookController } from "./controllers/patient.controller";
 
 export function createApp(): Application {
   const app = express();
 
   app.use(helmet());
   app.use(cors());
+  app.use(pinoHttp({ logger }));
+
+  app.post(
+    "/api/v1/labscan/webhooks/razorpay",
+    express.raw({ type: "application/json" }),
+    razorpayWebhookController,
+  );
+
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
-  app.use(pinoHttp({ logger }));
 
   // Liveness check for PM2 / load balancers / k8s probes.
   app.get('/health', (_req, res) => {
