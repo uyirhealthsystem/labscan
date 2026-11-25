@@ -7,7 +7,7 @@ import { notFoundHandler } from './middlewares/notFound.middleware';
 import routes from './routes';
 import { logger } from './utils/logger';
 import path from "path";
-import { userAuth } from "./middlewares/userauth";
+import { staffOnly, userAuth } from "./middlewares/userauth";
 import { razorpayWebhookController } from "./controllers/patient.controller";
 
 export function createApp(): Application {
@@ -31,7 +31,14 @@ export function createApp(): Application {
     res.status(200).json({ status: 'ok' });
   });
 
-  app.use("/uploads",express.static(path.join(process.cwd(), "uploads")));
+  // Report files are patient data: no longer public. Only through the gateway, logged in, staff roles.
+  // (Was app.use("/uploads", express.static(...)) - anyone reaching this port could read any report.)
+  app.use(
+    "/api/v1/labscan/uploads",
+    userAuth,
+    staffOnly,
+    express.static(path.join(process.cwd(), "uploads"), { index: false, dotfiles: "deny" }),
+  );
   // Namespaced so the api-gateway can route every labscan path by one prefix.
   app.use('/api/v1/labscan', userAuth, routes);
 

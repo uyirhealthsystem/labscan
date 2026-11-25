@@ -9,6 +9,9 @@ export const env = {
 
   logLevel: process.env.LOG_LEVEL ?? "info",
 
+  // Same value as LABSCAN_GATEWAY_SECRET on the api-gateway. When set, requests without it are refused.
+  gatewaySecret: process.env.GATEWAY_SECRET ?? "",
+
   kafka: {
     brokers: (process.env.KAFKA_BROKERS ?? "localhost:9092").split(","),
     clientId: process.env.KAFKA_CLIENT_ID ?? "labscan-service",
