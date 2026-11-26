@@ -29,7 +29,7 @@ router.use('/',reportRoutes);
 router.use('/',labscanRoutes);
 router.use('/',timeSlotRoutes);
 router.use('/',providerSettingRoutes);
-router.use('/patient', patientRoutes);
+router.use('/', patientRoutes);
 router.use('/',translateRoute)
 
 export default router;
